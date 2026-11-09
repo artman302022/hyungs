@@ -341,6 +341,9 @@
   <p class="note">폰 앞 카메라로 앞에 있는 사람의 얼굴 위치만 찾아서 그쪽으로 눈과 고개를 돌립니다. 영상은 이 폰 안에서만 처리하고 저장하거나 보내지 않습니다. 켜져 있으면 오른쪽 위에 작은 카메라 표시가 보입니다. 밤 시간(잠자는 시간)에는 꺼집니다.</p>
   <label style="display:flex;gap:10px;align-items:center;color:var(--text)"><input id="s-cam" type="checkbox" style="width:22px;height:22px"> 카메라로 얼굴 보기</label>
   <label style="display:flex;gap:10px;align-items:center;color:var(--text)"><input id="s-cam-flip" type="checkbox" style="width:22px;height:22px"> 좌우 반대로 (사람과 반대쪽을 보면 체크)</label>
+  <label style="display:flex;gap:10px;align-items:center;color:var(--text)"><input id="s-greet" type="checkbox" style="width:22px;height:22px"> 얼굴이 보이면 먼저 말 걸기</label>
+  <label for="s-greet-gap">다시 말 거는 간격
+    <select id="s-greet-gap"><option value="5">5분</option><option value="10">10분</option><option value="30">30분</option><option value="60">1시간</option></select></label>
   <h2 style="font-size:18px;margin-top:8px">가족 알림</h2>
   <p class="note">"남편한테 전해 줘"라고 하면, 형스가 보낼 문장을 먼저 읽어 주고 "보내도 될까요?" 하고 물은 뒤 보냅니다. 받는 폰에는 무료 앱 <b>ntfy</b>를 설치하고 아래 알림 주소를 구독하세요. 알림 주소를 아는 사람은 누구나 알림을 볼 수 있으니 다른 사람에게 알려 주지 마세요.</p>
   <label for="s-notify-name">받는 사람 (형스가 부르는 호칭)
@@ -447,6 +450,7 @@
                             place: "", lat: 0, lon: 0,
                             camOn: false, camFlip: false, earMode: "all", earEngine: "auto", micId: "", micMode: "raw", photoTopic: "", fbProject: "", fbKey: "", famId: "" }, store.get("cfg", {}));
   // 우리 가족 보관함(Firebase, 무료 Spark) – 웹 API 키는 공개 식별자라 코드에 넣어도 됩니다. 열쇠는 가족 코드.
+  if (!store.get("camGreetV1")) { cfg.camOn = true; store.set("camGreetV1", true); store.set("cfg", cfg); }   // 얼굴 보면 먼저 말 걸기: 기본으로 켬
   if (!cfg.fbProject) cfg.fbProject = "hyungs-700e0";
   if (!cfg.fbKey) cfg.fbKey = "AIzaSyDdUyfM073smAsiabB44r2VphgU6Trol6Y";
   if (!cfg.famId) {                                   // 처음 켤 때 가족 코드를 자동으로 만들어 저장
@@ -1905,6 +1909,7 @@
     },
   };
   $("mirror-shot").onclick = () => Mirror.shot();
+  document.addEventListener("change", (e) => { if (e.target && e.target.id === "s-greet") e.target.dataset.touched = "1"; });
   $("mirror-turn").onclick = () => Mirror.turn();
   $("mirror-close").onclick = () => Mirror.close();
 
@@ -2539,24 +2544,65 @@
       // 얼굴이 잠깐(약 0.7초) 계속 보이면 반응
       if (this.streak !== 3) return;
       const away = !this.prevSeen || now - this.prevSeen > 3 * 60 * 1000;   // 3분 넘게 아무도 없다가 나타남
-      const canGreet = away && now - this.lastGreet > 10 * 60 * 1000 && !Music.playing && !isNight();
+      const gap = (+cfg.greetGap || 10) * 60 * 1000;
+      const canGreet = cfg.greetOn !== false && away && now - this.lastGreet > gap && !Music.playing && !isNight() && !Mirror.on && !Letter.on && !Reminders.active;
       if (state === "sleep" && !isNight()) {
         if (canGreet) this.greet(now);
         else { state = "react"; setMood("happy"); body("wake"); showHint(false); holdThenIdle(2500); }
       } else if (state === "idle" && canGreet) this.greet(now);
     },
-    greet(now) {
+    // 사람이 카메라 앞에 나타나면 형스가 먼저 말을 검 (상황에 맞게 Gemini가 한두 문장, 안 되면 준비된 말)
+    pick(a) { return a[Math.floor(Math.random() * a.length)]; },
+    situation(h) {
+      const s = [], who = Inbox.who();
+      const away = this.prevSeen ? Math.round((Date.now() - this.prevSeen) / 60000) : 0;
+      if (away >= 60) s.push(`${Math.floor(away / 60)}시간쯤 만에 다시 보는 거야`); else if (away) s.push(`${away}분쯤 자리를 비웠다가 돌아왔어`);
+      if (!store.get("greetDay") || store.get("greetDay") !== new Date().toDateString()) s.push("오늘 처음 보는 거야");
+      const soon = Reminders.today().filter((x) => x.next > Date.now() && x.next - Date.now() < 3 * 3600e3)[0];
+      if (soon) s.push(`곧 알림이 있어: ${Reminders.describe(soon)}`);
+      if (Inbox.fresh.length) s.push(`${who}한테서 새 소식이 와 있어 (인사 뒤에 따로 보여 줄 거니까 내용은 말하지 말고 왔다는 것만)`);
+      const dc = DayCount.get(); if (dc && Math.random() < 0.3) s.push(dc.short);
+      return s;
+    },
+    fallback(h) {
+      const who = Inbox.who();
+      const hi = h < 11 ? ["좋은 아침이에요!", "잘 주무셨어요?", "아침이에요! 오늘도 반가워요."]
+        : h < 14 ? ["점심은 드셨어요?", "어서 오세요! 보고 싶었어요."]
+        : h < 18 ? ["오셨어요? 반가워요!", "잠깐 쉬어 가세요. 차 한잔 어떠세요?"]
+        : ["오셨어요? 오늘도 수고 많으셨어요.", "저녁은 드셨어요?"];
+      const q = ["오늘 기분은 어떠세요?", "별일 없으셨어요?", `${who} 생각 나셨어요?`, "저랑 얘기 좀 하실래요?"];
+      let t = this.pick(hi);
+      if (Inbox.fresh.length) t += ` ${who}한테서 새 소식이 왔어요!`;
+      else if (!/\?$/.test(t)) t += " " + this.pick(q);
+      return t;
+    },
+    async greetLine(h) {
+      if (!cfg.key) return { text: this.fallback(h), emotion: "happy" };
+      const now = new Date();
+      const prompt = `(형스만 보는 상황 설명이야. 사용자가 말한 게 아니야.) 방금 카메라 앞에 사용자가 나타났어. 지금은 ${now.getHours()}시 ${now.getMinutes()}분. ` +
+        this.situation(h).join(". ") + ". 네가 먼저 반갑게 말을 걸어 줘. 한두 문장으로 짧고 다정하게, 대답하기 쉬운 질문 하나로 끝내. " +
+        "매번 똑같은 말은 피하고, 기억하고 있는 사용자 이야기를 자연스럽게 써도 좋아. text와 emotion만 채우고 나머지 기능 필드는 모두 비워.";
+      try {
+        const r = await Promise.race([ask(prompt), new Promise((_, no) => setTimeout(() => no(new Error("느림")), 7000))]);
+        if (r && r.text && r.text.length < 120) return { text: r.text, emotion: ["happy", "love"].includes(r.emotion) ? r.emotion : "happy" };
+      } catch (e) { console.warn("greet", e); }
+      return { text: this.fallback(h), emotion: "happy" };
+    },
+    async greet(now) {
       this.lastGreet = now;
       const h = new Date().getHours();
-      const w = h < 11 ? "좋은 아침이에요!" : h < 17 ? "어서 오세요! 보고 싶었어요." : "오셨어요? 오늘도 수고 많으셨어요.";
-      state = "react"; setMood("happy"); body("wake"); say(w); showHint(false);
-      speak(w).then(async () => {
-        if (h >= 5 && h < 11 && cfg.briefOn !== false && !Brief.doneToday()) await Brief.run();   // 하루 첫 아침 인사엔 브리핑
-        if (h >= 5 && h < 11 && !Voices.playedToday("morning") && Voices.counts.morning) {   // 하루 첫 아침 인사엔 아들 목소리
-          Voices.markToday("morning"); say(`${Inbox.who()} 아침 인사예요.`); await Voices.playKinds(["morning"]);
-        }
-        holdThenIdle(3000);
-      });
+      state = "react"; setMood("happy"); body("wake"); showHint(false); chirp("happy");
+      const g = await this.greetLine(h);
+      if (state !== "react") return;                                  // 그 사이에 사용자가 먼저 말을 걸었으면 끼어들지 않음
+      store.set("greetDay", new Date().toDateString());
+      setMood(g.emotion); say(g.text);
+      await speak(g.text);
+      if (h >= 5 && h < 11 && cfg.briefOn !== false && !Brief.doneToday()) await Brief.run();   // 하루 첫 아침 인사엔 브리핑
+      if (h >= 5 && h < 11 && !Voices.playedToday("morning") && Voices.counts.morning) {   // 하루 첫 아침 인사엔 아들 목소리
+        Voices.markToday("morning"); say(`${Inbox.who()} 아침 인사예요.`); await Voices.playKinds(["morning"]);
+      }
+      lastActive = Date.now(); toIdle();                               // 바로 들을 준비 (대답하시면 이어서 대화)
+      if (Inbox.fresh.length) Inbox.later(1500);
     },
     onNoFace() {
       this.missStreak++;
@@ -2798,7 +2844,7 @@
     $("s-fb-project").value = cfg.fbProject || ""; $("s-fb-key").value = cfg.fbKey || ""; $("s-fam").value = cfg.famId || "";
     $("s-frame").checked = cfg.frameOn !== false; $("s-frame-min").value = String(cfg.frameAfterMin || 3);
     $("s-notify-name").value = cfg.notifyName; $("s-ntfy").value = cfg.ntfyTopic;
-    $("s-cam").checked = !!cfg.camOn; $("s-cam-flip").checked = !!cfg.camFlip; $("s-ear").value = cfg.earMode; $("s-ear-engine").value = cfg.earEngine || "auto"; $("s-mic-mode").value = cfg.micMode || "raw"; fillMics();
+    $("s-cam").checked = !!cfg.camOn; $("s-cam-flip").checked = !!cfg.camFlip; $("s-greet").checked = cfg.greetOn !== false; $("s-greet-gap").value = String(cfg.greetGap || 10); $("s-ear").value = cfg.earMode; $("s-ear-engine").value = cfg.earEngine || "auto"; $("s-mic-mode").value = cfg.micMode || "raw"; fillMics();
     $("s-place").value = cfg.place; pendingGeo = {};
     $("s-mvol").value = cfg.musicVol; $("s-mvol-v").textContent = Math.round(cfg.musicVol * 100) + "%";
     $("s-pitch").value = cfg.pitch; $("s-rate").value = cfg.rate; showVoiceNums();
@@ -2850,7 +2896,7 @@
             musicVol: +$("s-mvol").value, notifyName: $("s-notify-name").value.trim(),
             ntfyTopic: $("s-ntfy").value.trim().replace(/^https?:\/\/ntfy\.sh\//, ""),
             place: $("s-place").value.trim(), lat: pendingGeo.lat ?? cfg.lat, lon: pendingGeo.lon ?? cfg.lon,
-            camOn: $("s-cam").checked, camFlip: $("s-cam-flip").checked, earMode: $("s-ear").value, earEngine: $("s-ear-engine").value,
+            camOn: $("s-cam").checked, camFlip: $("s-cam-flip").checked, greetOn: $("s-greet").checked, greetGap: +$("s-greet-gap").value, earMode: $("s-ear").value, earEngine: $("s-ear-engine").value,
             micId: $("s-mic").value, micMode: $("s-mic-mode").value,
             briefOn: $("s-brief").checked, briefNews: $("s-brief-news").checked, remindFamily: $("s-rem-family").checked,
             letterSign: $("s-letter-sign").value.trim(),
@@ -2860,6 +2906,7 @@
     if (GEar.active()) GEar.restart();
     Inbox.start(); Vault.start();
     if (cfg.earMode === "face" && !cfg.camOn) { cfg.camOn = true; $("s-cam").checked = true; }
+    if (cfg.greetOn && !cfg.camOn && $("s-greet").dataset.touched) { cfg.camOn = true; $("s-cam").checked = true; }
     if (cfg.camOn) Vision.start(); else Vision.stop();
     setHint(); Ear.kick();
     pendingGeo = {};
