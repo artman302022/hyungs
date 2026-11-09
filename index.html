@@ -1,0 +1,3092 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1018">
+<link rel="manifest" href="manifest.json">
+<title>형스</title>
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  [hidden]{display:none!important}
+  :root{
+    --bg:#0b1018; --eye:#9fe3ff; --eye-glow:rgba(159,227,255,.35);
+    --warm:#f095aa; --text:#dfe9f5; --hint:#6c7a8c; --panel:#141c28; --line:#2a3546; --accent:#7d9cf5;
+  }
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;color:var(--text);
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    font-family:"Samsung One","Noto Sans KR","Apple SD Gothic Neo",sans-serif}
+  #stage{position:fixed;inset:0;display:grid;place-items:center;touch-action:none;transition:filter .8s}
+  #stage.sleep{filter:brightness(.35)}
+
+  #caption{position:absolute;top:calc(7vh + env(safe-area-inset-top,0px));left:6vw;right:6vw;
+    font-size:clamp(20px,6vw,34px);line-height:1.45;text-align:center;min-height:3em;word-break:keep-all}
+  #caption.heard{color:var(--hint)}
+
+  #face{position:relative;width:min(80vw,60vh);aspect-ratio:1/1;display:grid;place-items:center}
+  #eyes{display:flex;gap:18%;width:78%;justify-content:center;
+    transform:translate(var(--lx,0),var(--ly,0));transition:transform .35s ease}
+  .eye{width:34%;aspect-ratio:1/1.15;background:var(--eye);border-radius:46%;
+    box-shadow:0 0 30px var(--eye-glow);transition:all .35s ease}
+  .eye.blink{transform:scaleY(.08)!important}
+  #mouth{position:absolute;bottom:14%;width:14%;height:6%;border-bottom:5px solid var(--eye);
+    border-radius:0 0 50% 50%;opacity:.85;transition:all .3s}
+  .blush{position:absolute;top:60%;width:12%;height:5%;background:var(--warm);border-radius:50%;opacity:0;transition:opacity .4s}
+  .blush.l{left:6%}.blush.r{right:6%}
+
+  #face[data-m="happy"] .eye{border-radius:50% 50% 14% 14%/70% 70% 14% 14%;aspect-ratio:1/.6}
+  #face[data-m="happy"] .blush{opacity:.55}
+  #face[data-m="happy"] #mouth{width:22%;height:10%}
+  #face[data-m="love"] .eye{background:var(--warm);box-shadow:0 0 30px rgba(240,149,170,.4);
+    border-radius:50% 50% 50% 50%/40% 40% 60% 60%}
+  #face[data-m="love"] .blush{opacity:.8}
+  #face[data-m="love"] #mouth{width:20%;height:9%}
+  #face[data-m="sad"] .eye{aspect-ratio:1/.75;border-radius:20% 20% 50% 50%}
+  #face[data-m="sad"] .eye:first-child{transform:rotate(-14deg)}
+  #face[data-m="sad"] .eye:last-child{transform:rotate(14deg)}
+  #face[data-m="sad"] #mouth{border-bottom:0;border-top:5px solid var(--eye);border-radius:50% 50% 0 0}
+  #face[data-m="listen"] .eye{aspect-ratio:1/1.35}
+  #face[data-m="listen"] #mouth{width:8%;height:8%;border:5px solid var(--eye);border-radius:50%}
+  #face[data-m="think"] #eyes{--ly:-8%;--lx:6%}
+  #face[data-m="think"] .eye{aspect-ratio:1/.9}
+  #face[data-m="sleep"] .eye{aspect-ratio:1/.08;border-radius:6px;box-shadow:none}
+  #face[data-m="sleep"] #mouth{opacity:.25}
+
+  #face.talk #mouth{animation:talk .22s infinite alternate}
+  #face.dance #eyes{animation:sway 1.6s ease-in-out infinite}
+  @keyframes sway{0%,100%{transform:translateX(-4%) rotate(-3deg)}50%{transform:translateX(4%) rotate(3deg)}}
+  @keyframes talk{from{height:4%;width:12%}to{height:12%;width:18%;border-radius:0 0 50% 50%}}
+
+  #zzz{position:absolute;top:8%;right:10%;color:var(--hint);font-size:clamp(22px,7vw,40px);opacity:0;transition:opacity .6s}
+  #face[data-m="sleep"] #zzz{opacity:1;animation:float 3s ease-in-out infinite}
+  @keyframes float{50%{transform:translateY(-12px)}}
+
+  #hint{position:absolute;bottom:calc(5vh + env(safe-area-inset-bottom,0px));left:0;right:0;
+    text-align:center;color:var(--hint);font-size:clamp(14px,4vw,20px);transition:opacity .5s}
+  #cam-dot{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:30px;width:12px;height:12px;opacity:0;transition:opacity .4s}
+  #cam-dot.on{opacity:.55}
+  #cam-dot.on.seen{opacity:1}
+  #cam-dot.seen circle{stroke:#5be38a}
+  #cam-dot.seen circle+circle{fill:#5be38a}
+  #photo{position:fixed;inset:0;background:#000;display:none;z-index:20;align-items:center;justify-content:center}
+  #photo.on{display:flex}
+  #photo img{max-width:100%;max-height:100%;object-fit:contain;opacity:0;transition:opacity .7s}
+  #photo img.in{opacity:1}
+  #photo .count{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:#9aa4b2;font-size:14px}
+  #alert{position:fixed;left:6%;right:6%;top:18%;z-index:40;background:#fff7e0;color:#2b2200;border-radius:22px;padding:28px 22px;text-align:center;box-shadow:0 10px 40px #0008}
+  #alert-time{font-size:18px;color:#8a6a00;margin-bottom:8px}
+  #alert-text{font-size:clamp(28px,8vw,46px);font-weight:800;line-height:1.3;margin-bottom:22px;word-break:keep-all}
+  #alert button{font-weight:700;font-size:22px;font-family:inherit;border:0;border-radius:14px;padding:16px 28px;background:#ffb300;color:#2b2200;width:100%}
+  #letter{position:fixed;inset:0;z-index:35;background:var(--bg);display:flex;flex-direction:column;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));gap:10px}
+  #letter h2{margin:0;font-size:22px;color:var(--text)}
+  #letter p{margin:0;color:var(--hint);font-size:15px;line-height:1.5}
+  #letter-body{flex:1;min-height:0;width:100%;box-sizing:border-box;resize:none;border-radius:14px;border:1px solid var(--line);background:#fffdf6;color:#222;font:19px/1.7 "Noto Serif KR",serif;padding:16px}
+  #letter .row{display:flex;gap:8px;flex-wrap:wrap}
+  #letter button{flex:1 1 30%;font-weight:700;font-size:17px;font-family:inherit;border-radius:12px;padding:14px 10px;border:1px solid var(--line);background:var(--panel);color:var(--text)}
+  #letter button.main{background:var(--accent);color:#0b1018;border:0}
+  #frame{position:fixed;inset:0;z-index:15;background:#000}
+  #frame-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 1.2s}
+  #frame-img.in{opacity:1}
+  #frame-info{position:absolute;left:0;right:0;bottom:0;padding:18px 20px calc(18px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,#000c);color:#fff}
+  #frame-time{font-size:clamp(44px,14vw,80px);font-weight:300;line-height:1}
+  #frame-date{font-size:20px;margin-top:4px}
+  #frame-dday,#frame-note{font-size:16px;color:#d8e6f5;margin-top:4px}
+  #cam-video{position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0;pointer-events:none}
+  #body-dot{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:14px;width:8px;height:8px;border-radius:50%;background:#e06666;opacity:.6}
+  #body-dot.on{background:#5cc28a}
+  #gear{position:absolute;top:env(safe-area-inset-top,0px);left:0;width:84px;height:84px;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+  /* 설정 화면 */
+  .panel{position:fixed;inset:0;background:var(--bg);overflow:auto;padding:calc(24px + env(safe-area-inset-top,0px)) 20px 40px;
+    display:grid;align-content:start;gap:16px;font-size:16px;line-height:1.55;-webkit-user-select:text;user-select:text}
+  .panel h2{margin:0;font-size:22px}
+  .panel label{display:grid;gap:6px;font-size:14px;color:var(--hint)}
+  .panel input,.panel textarea,.panel select{font:16px/1.5 inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%;box-sizing:border-box}
+  .panel textarea{min-height:240px;resize:vertical}
+  .panel .row{display:flex;gap:10px;flex-wrap:wrap}
+  .panel button{font:600 16px inherit;border:0;border-radius:8px;padding:12px 18px;background:var(--accent);color:#0b1018}
+  .panel button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+  .panel .note{font-size:14px;color:var(--hint)}
+  .panel label.check{display:flex;gap:10px;align-items:center;color:var(--text)}
+  .panel label.check input{width:22px;height:22px;flex:0 0 auto}
+  .panel code{background:var(--panel);padding:2px 6px;border-radius:4px;font-size:14px;word-break:break-all}
+
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="caption"></div>
+  <div id="face" data-m="idle">
+    <div id="eyes"><div class="eye"></div><div class="eye"></div></div>
+    <span class="blush l"></span><span class="blush r"></span>
+    <div id="mouth"></div>
+    <div id="zzz">z z</div>
+  </div>
+  <div id="hint">화면을 톡 치고 말씀하세요</div>
+  <div id="body-dot" title="받침대 연결"></div>
+  <svg id="cam-dot" viewBox="0 0 24 24" aria-label="카메라 켜짐" role="img"><circle cx="12" cy="12" r="5" fill="none" stroke="#9fe3ff" stroke-width="2.5"/><circle cx="12" cy="12" r="1.8" fill="#9fe3ff"/></svg>
+  <video id="cam-video" playsinline muted></video>
+  <div id="photo"><img alt=""><div class="count"></div></div>
+  <div id="gear" aria-label="설정 (왼쪽 위를 3초 누르기)"></div>
+  <div id="frame" hidden><img id="frame-img" alt=""><div id="frame-info"><div id="frame-time"></div><div id="frame-date"></div><div id="frame-dday"></div><div id="frame-note"></div></div></div>
+</div>
+<div id="alert" hidden role="alertdialog"><div id="alert-time"></div><div id="alert-text"></div><button id="alert-ok" type="button">확인했어요</button></div>
+<div id="letter" hidden>
+  <h2 id="letter-title">편지</h2>
+  <p id="letter-guide"></p>
+  <textarea id="letter-body" readonly></textarea>
+  <div class="row" id="letter-write"><button id="letter-finish" class="main" type="button">다 썼어요</button><button id="letter-undo" type="button">방금 거 지우기</button><button id="letter-cancel" type="button">그만두기</button></div>
+  <div class="row" id="letter-done" hidden><button id="letter-copy" class="main" type="button">복사하기</button><button id="letter-share" type="button">카톡 등으로 공유</button><button id="letter-send" type="button">아들 폰으로 보내기</button><button id="letter-read" type="button">읽어 주기</button><button id="letter-close" type="button">닫기</button></div>
+  <p id="letter-msg"></p>
+</div>
+
+<div id="settings" class="panel" hidden>
+  <h2>반려봇 설정</h2>
+  <label for="s-name">반려봇 이름
+    <input id="s-name" type="text" autocomplete="off" placeholder="예: 콩이">
+  </label>
+  <label for="s-model">대화 엔진
+    <select id="s-model">
+      <option value="gemini-flash-lite-latest">Gemini Flash-Lite (무료, 하루 약 500번 · 추천)</option>
+      <option value="gemini-flash-latest">Gemini Flash (무료, 하루 약 20번)</option>
+      <option value="claude-haiku-5-5">Claude Haiku (유료)</option>
+      <option value="claude-sonnet-5-5">Claude Sonnet (유료)</option>
+    </select>
+  </label>
+  <label for="s-key">API 키 (비워 두면 인터넷 없이 간단한 대화만)
+    <input id="s-key" type="password" autocomplete="off" placeholder="Gemini: AIza... / Claude: sk-ant-...">
+  </label>
+  <label for="s-persona">성격과 가족 정보 ([대괄호] 부분을 채워 주세요)
+    <textarea id="s-persona"></textarea>
+  </label>
+  <h2 style="font-size:18px;margin-top:8px">날짜 세기</h2>
+  <p class="note">입대일을 넣으면 형스가 "입대한 지 며칠째", "전역까지 며칠"을 알고 대답합니다.</p>
+  <div class="row">
+    <label for="s-son" style="flex:1 1 120px">아들 이름<input id="s-son" type="text" autocomplete="off" placeholder="예: 주형"></label>
+    <label for="s-enlist" style="flex:1 1 150px">입대일<input id="s-enlist" type="date"></label>
+    <label for="s-months" style="flex:0 1 110px">복무 개월<input id="s-months" type="number" min="12" max="40" step="1"></label>
+  </div>
+  <h2 style="font-size:18px;margin-top:8px">형스 수첩 (오래 기억하기)</h2>
+  <p class="note">대화가 끝나면 형스가 오래 기억할 만한 것(일정, 습관, 좋아하는 것, 가족 이야기)을 여기에 한 줄씩 적고, 다음 대화부터 참고합니다. 이 폰 안에만 저장됩니다. 직접 고치거나 지워도 되고, 형스에게 "그건 잊어버려", "이거 기억해"라고 말해도 됩니다. 건강처럼 민감한 이야기도 적힐 수 있으니 가끔 열어 확인해 주세요.</p>
+  <label for="s-notes">수첩 (한 줄에 하나) <span id="s-notes-n"></span>
+    <textarea id="s-notes" spellcheck="false" style="min-height:160px"></textarea>
+  </label>
+  <div class="row">
+    <button id="s-notes-now" type="button" class="ghost">지금 대화 정리해서 적기</button>
+    <button id="s-notes-clear" type="button" class="ghost">수첩 비우기</button>
+  </div>
+  <label for="s-tts">목소리 종류
+    <select id="s-tts">
+      <option value="gemini">AI 목소리 (Gemini, 귀엽게 연기 가능 · 무료 한도 안에서)</option>
+      <option value="phone">폰 기본 음성 (빠름, 인터넷 없이도 됨)</option>
+    </select>
+  </label>
+  <div id="s-gem-box" style="display:grid;gap:14px">
+    <label for="s-gvoice">AI 목소리
+      <select id="s-gvoice">
+        <option value="Leda">레다 · 앳된 목소리</option>
+        <option value="Puck">퍽 · 밝고 경쾌함</option>
+        <option value="Laomedeia">라오메데이아 · 통통 튐</option>
+        <option value="Fenrir">펜리르 · 신나는 소년</option>
+        <option value="Achird">아키르드 · 다정함</option>
+        <option value="Sadachbia">사닥비아 · 생기 있음</option>
+        <option value="Zephyr">제퍼 · 맑고 밝음</option>
+        <option value="Charon">카론 · 차분한 남성</option>
+      </select>
+    </label>
+    <label for="s-gstyle">말투 (AI에게 주는 연기 지시)
+      <input id="s-gstyle" type="text" autocomplete="off">
+    </label>
+    <label for="s-gcute">귀엽게 높이기 <span id="s-gcute-v"></span>
+      <input id="s-gcute" type="range" min="1" max="1.3" step="0.02">
+    </label>
+    <p class="note">AI 목소리는 대답할 때마다 한 번씩 무료 한도를 씁니다. 한도를 넘거나 인터넷이 느리면 그동안은 폰 기본 음성으로 말합니다. '귀엽게 높이기'를 올리면 목소리가 높고 조금 빨라집니다.</p>
+  </div>
+  <label for="s-voice-preset">폰 음성 목소리
+    <select id="s-voice-preset">
+      <option value="0.72,0.95">듬직한 청년 (낮고 차분하게)</option>
+      <option value="0.85,1.05">다정한 남동생 (조금 낮게)</option>
+      <option value="1.0,1.0">기본</option>
+      <option value="1.45,1.05">귀여운 로봇 (높게)</option>
+    </select>
+  </label>
+  <label for="s-voice">음성 엔진 (폰에 설치된 한국어 음성)
+    <select id="s-voice"><option value="">자동</option></select>
+  </label>
+  <label for="s-pitch">높낮이 <span id="s-pitch-v"></span>
+    <input id="s-pitch" type="range" min="0.5" max="2" step="0.05">
+  </label>
+  <label for="s-rate">빠르기 <span id="s-rate-v"></span>
+    <input id="s-rate" type="range" min="0.7" max="1.4" step="0.05">
+  </label>
+  <div class="row"><button id="s-voice-try" type="button" class="ghost">목소리 들어보기</button></div>
+  <h2 style="font-size:18px;margin-top:8px">음악</h2>
+  <p class="note">"신나는 노래 틀어 줘"처럼 말하면 분위기에 맞는 음악을 틀어요. 분위기별로 좋아하는 노래 파일(mp3)을 넣어 두면 그 노래를, 없으면 형스가 직접 연주해요. 음악 중에 화면을 톡 치면 멈춰요.</p>
+  <label for="s-mvol">음악 크기 <span id="s-mvol-v"></span>
+    <input id="s-mvol" type="range" min="0.1" max="1" step="0.05">
+  </label>
+  <div id="s-music" style="display:grid;gap:10px"></div>
+  <input id="s-music-file" type="file" accept="audio/*" multiple hidden>
+  <h2 style="font-size:18px;margin-top:8px">아침 브리핑</h2>
+  <label class="check"><input id="s-brief" type="checkbox"> 하루 첫 아침 인사 때 날씨·아들 날짜·오늘 알림·뉴스를 말해 주기</label>
+  <label class="check"><input id="s-brief-news" type="checkbox"> 브리핑에 뉴스 세 줄 넣기</label>
+  <div class="row"><button id="s-brief-test" type="button" class="ghost">브리핑 들어 보기</button></div>
+  <h2 style="font-size:18px;margin-top:8px">알림·약 챙기기</h2>
+  <p class="note">"오후 3시에 약 먹으라고 알려 줘", "매일 아침 9시에 혈압약 알려 줘"처럼 말하면 맞춰 줍니다. 시간이 되면 큰 글씨로 보여 주고 말해 주며, 확인할 때까지 5분마다 세 번 다시 알려 줍니다. 형스 화면이 켜져 있어야 알려 줄 수 있습니다.</p>
+  <div id="s-rem-list" style="display:grid;gap:8px"></div>
+  <div class="row" style="align-items:center">
+    <input id="s-rem-time" type="time" style="flex:0 0 130px">
+    <input id="s-rem-text" type="text" placeholder="예: 혈압약 드시기" style="flex:1 1 140px">
+  </div>
+  <label class="check"><input id="s-rem-daily" type="checkbox" checked> 매일</label>
+  <div class="row"><button id="s-rem-add" type="button" class="ghost">알림 넣기</button></div>
+  <label class="check"><input id="s-rem-family" type="checkbox"> 세 번 알려도 확인하지 않으면 가족 알림 주소로 알려 주기</label>
+  <h2 style="font-size:18px;margin-top:8px">편지</h2>
+  <p class="note">"주형이에게 편지 쓸래"라고 하면 말하는 대로 받아 적고, "다 썼어" 하면 맞춤법만 다듬어 보여 줍니다. 복사해서 공군 인터넷 편지나 카톡에 붙여 넣거나, 사진 받는 주소가 있으면 아들 폰(ntfy)으로 바로 보낼 수 있습니다.</p>
+  <label for="s-letter-sign">편지 끝에 쓸 이름
+    <input id="s-letter-sign" type="text" placeholder="엄마">
+  </label>
+  <div class="row"><button id="s-letter-past" type="button" class="ghost">지난 편지 보기</button></div>
+  <h2 style="font-size:18px;margin-top:8px">사진 액자</h2>
+  <label class="check"><input id="s-frame" type="checkbox"> 한동안 조용하면 사진을 액자처럼 넘겨 보여 주기 (밤에는 잠)</label>
+  <label for="s-frame-min">시작까지
+    <select id="s-frame-min"><option value="2">2분</option><option value="3">3분</option><option value="5">5분</option><option value="10">10분</option></select>
+  </label>
+  <h2 style="font-size:18px;margin-top:8px">사진</h2>
+  <p class="note">"주형이 사진 보여줘", "가족 사진 보여줘"처럼 말하면 형스 얼굴 대신 사진을 넘겨 보여 줍니다. 사진은 이 폰 안에만 저장하고 밖으로 보내지 않습니다. 보는 중에 화면을 톡 치면 다음 사진으로 넘어가고, 마지막 사진에서 톡 치면 끝납니다.</p>
+  <label for="s-album">앨범 이름 (예: 주형, 가족, 여행)
+    <input id="s-album" type="text" autocomplete="off" placeholder="가족">
+  </label>
+  <div class="row"><button id="s-photo-add" type="button" class="ghost">이 앨범에 사진 넣기</button></div>
+  <div id="s-photos" style="display:grid;gap:10px"></div>
+  <input id="s-photo-file" type="file" accept="image/*" multiple hidden>
+  <h2 style="font-size:18px;margin-top:8px">아들 목소리</h2>
+  <p class="note">아들 폰으로 녹음한 파일을 넣어 두면, 하루 첫 아침 인사와 밤에 잠들기 전에 한 번씩 틀어 주고, "주형이 목소리 들려줘" 하면 들려줍니다. 아래 '사진 받는 주소'로 아들이 녹음 파일을 보내면 음성 메시지로 받아 바로 들려줍니다. 재생 중에 화면을 톡 치면 멈춥니다. (이 폰은 녹음용 마이크가 고장 나 있으니 녹음은 아들 폰으로 하세요.)</p>
+  <div id="s-voices" style="display:grid;gap:10px"></div>
+  <input id="s-voice-file" type="file" accept="audio/*" multiple hidden>
+  <label for="s-photo-topic">사진 받는 주소 (아들이 보낸 사진을 받는 곳)
+    <input id="s-photo-topic" type="text" autocomplete="off" spellcheck="false" placeholder="hyungs-photo-...">
+  </label>
+  <div class="row">
+    <button id="s-photo-topic-new" type="button" class="ghost">새 주소 만들기</button>
+    <button id="s-photo-topic-test" type="button" class="ghost">시험 사진 보내기</button>
+  </div>
+  <p class="note">아들 폰에 무료 앱 <b>ntfy</b>를 깔고 이 주소를 구독한 뒤, 갤러리에서 사진을 <b>공유 → ntfy → 이 주소</b>로 보내면 형스가 받아 아들 이름 앨범에 저장하고 "사진을 보냈어요!" 하고 보여 줍니다. 사진과 함께 쓴 글이나 글만 보낸 것도 읽어 주고, 녹음 파일을 보내면 음성 메시지로 들려줍니다. 무료 서버는 사진을 몇 시간만 보관하니 그동안 형스가 켜져 있어야 받습니다. 이 주소를 아는 사람은 누구나 보낼 수 있으니 아들에게만 알려 주세요.</p>
+  <p class="note" id="s-photo-topic-state"></p>
+  <h2 style="font-size:18px;margin-top:8px">사진 보관함 (사라지지 않게)</h2>
+  <p class="note">무료 Firebase(Firestore)에 보관함을 만들어 두면, 아들이 '엄마에게 보내기' 페이지로 보낸 사진·음성·글이 지워지지 않고 남습니다. 형스를 며칠 뒤에 열어도 그동안 온 것을 모두 받아 오고, 폰을 바꿔도 다시 받을 수 있습니다. 만드는 방법은 안내문을 보세요.</p>
+  <label for="s-fb-project">Firebase 프로젝트 ID
+    <input id="s-fb-project" type="text" autocomplete="off" spellcheck="false" placeholder="예: hyungs-1a2b3">
+  </label>
+  <label for="s-fb-key">Firebase 웹 API 키
+    <input id="s-fb-key" type="password" autocomplete="off" placeholder="AIza...">
+  </label>
+  <label for="s-fam">가족 코드 (보관함 비밀번호 역할)
+    <input id="s-fam" type="text" autocomplete="off" spellcheck="false" placeholder="fam-...">
+  </label>
+  <div class="row">
+    <button id="s-fam-new" type="button" class="ghost">가족 코드 만들기</button>
+    <button id="s-send-link" type="button" class="ghost">아들에게 줄 링크 복사</button>
+    <button id="s-vault-restore" type="button" class="ghost">보관함에서 모두 다시 받기</button>
+  </div>
+  <p class="note" id="s-vault-state"></p>
+  <h2 style="font-size:18px;margin-top:8px">말로 부르기 (항상 듣기)</h2>
+  <p class="note">화면을 톡 치지 않아도 말하면 대답합니다. 마이크가 계속 켜져 있고, 들리는 소리는 글자로 바꾸기 위해 구글 음성 인식(또는 Gemini)으로 보내집니다. Gemini로 들을 때는 말소리 부분만 보내고, 대화 한 번에 Gemini 요청이 하나 더 듭니다(무료 한도 안). TV 소리나 통화에도 대답한다면 '이름을 부를 때만'이나 '얼굴이 보일 때만'을 쓰세요. 잠잘 때는 이름을 불러야 대답하고, 음악이 나오는 동안에는 듣지 않습니다(음악을 끊지 않으려고). 음악은 화면을 톡 치면 멈춥니다.</p>
+  <label for="s-ear">듣기 방식
+    <select id="s-ear">
+      <option value="all">아무 말이나 하면 대답</option>
+      <option value="face">얼굴이 보일 때 하는 말에 대답 (카메라 필요)</option>
+      <option value="name">이름을 부를 때만 대답 ("형스야, …")</option>
+      <option value="off">끄기 (화면을 톡 쳐야 대답)</option>
+    </select>
+  </label>
+  <label for="s-ear-engine">알아듣는 방법
+    <select id="s-ear-engine">
+      <option value="auto">자동 (폰 음성 인식이 안 되면 Gemini로)</option>
+      <option value="phone">폰의 구글 음성 인식</option>
+      <option value="gemini">Gemini로 받아 적기</option>
+    </select>
+  </label>
+  <label for="s-mic">마이크 (Gemini로 들을 때)
+    <select id="s-mic"><option value="">기본 마이크</option></select>
+  </label>
+  <label for="s-mic-mode">마이크 처리 방식
+    <select id="s-mic-mode">
+      <option value="raw">기본 (음성 인식용)</option>
+      <option value="call">통화용 (위·아래 마이크를 함께 씀)</option>
+    </select>
+  </label>
+  <p class="note" id="s-ear-state"></p>
+  <p class="note">말할 때 아래 막대가 길어지지 않으면 마이크나 처리 방식을 바꿔 보세요. 바꾸면 바로 적용되니, 막대가 가장 잘 움직이는 쪽을 고르고 저장하면 됩니다.</p>
+  <h2 style="font-size:18px;margin-top:8px">인터넷 검색</h2>
+  <p class="note">따로 가입이나 키 없이 무료로 됩니다. 날씨·미세먼지는 오픈메테오, 뉴스와 요즘 소식은 구글 뉴스, 지식은 위키백과, 환율은 <a href="https://www.exchangerate-api.com" style="color:var(--accent)">Rates By Exchange Rate API</a>(하루 한 번 갱신)에서 찾습니다. 가게·맛집 찾기는 아직 못 합니다.</p>
+  <label for="s-place">사는 동네 (날씨 기준)
+    <input id="s-place" type="text" autocomplete="off" placeholder="예: 서울 강서구">
+  </label>
+  <div class="row"><button id="s-place-find" type="button" class="ghost">위치 찾기</button></div>
+  <div class="row"><button id="s-search-test" type="button" class="ghost">검색 시험</button></div>
+  <h2 style="font-size:18px;margin-top:8px">카메라</h2>
+  <p class="note">폰 앞 카메라로 앞에 있는 사람의 얼굴 위치만 찾아서 그쪽으로 눈과 고개를 돌립니다. 영상은 이 폰 안에서만 처리하고 저장하거나 보내지 않습니다. 켜져 있으면 오른쪽 위에 작은 카메라 표시가 보입니다. 밤 시간(잠자는 시간)에는 꺼집니다.</p>
+  <label style="display:flex;gap:10px;align-items:center;color:var(--text)"><input id="s-cam" type="checkbox" style="width:22px;height:22px"> 카메라로 얼굴 보기</label>
+  <label style="display:flex;gap:10px;align-items:center;color:var(--text)"><input id="s-cam-flip" type="checkbox" style="width:22px;height:22px"> 좌우 반대로 (사람과 반대쪽을 보면 체크)</label>
+  <h2 style="font-size:18px;margin-top:8px">가족 알림</h2>
+  <p class="note">"남편한테 전해 줘"라고 하면, 형스가 보낼 문장을 먼저 읽어 주고 "보내도 될까요?" 하고 물은 뒤 보냅니다. 받는 폰에는 무료 앱 <b>ntfy</b>를 설치하고 아래 알림 주소를 구독하세요. 알림 주소를 아는 사람은 누구나 알림을 볼 수 있으니 다른 사람에게 알려 주지 마세요.</p>
+  <label for="s-notify-name">받는 사람 (형스가 부르는 호칭)
+    <input id="s-notify-name" type="text" autocomplete="off" placeholder="예: 남편">
+  </label>
+  <label for="s-ntfy">알림 주소 (비워 두면 가족 알림을 쓰지 않음)
+    <input id="s-ntfy" type="text" autocomplete="off" spellcheck="false" placeholder="hyungs-...">
+  </label>
+  <div class="row">
+    <button id="s-ntfy-new" type="button" class="ghost">새 주소 만들기</button>
+    <button id="s-ntfy-test" type="button" class="ghost">시험 알림 보내기</button>
+  </div>
+  <div class="row">
+    <button id="s-save" type="button">저장</button>
+    <button id="s-sound" type="button" class="ghost">소리 시험</button>
+    <button id="s-test" type="button" class="ghost">받침대 동작 시험</button>
+    <button id="s-clear" type="button" class="ghost">대화 기록 지우기</button>
+    <button id="s-close" type="button" class="ghost">닫기</button>
+  </div>
+  <p class="note" id="s-msg"></p>
+  <p class="note">설정과 대화 기록은 이 폰의 크롬 안에만 저장됩니다. 받침대(ESP32) 주소가 바뀌면 다시 입력해야 하니, 공유기에서 ESP32 IP를 고정해 두세요.</p>
+</div>
+
+<div id="setup" class="panel" hidden></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------------- 설정값 ----------------
+  const SLEEP_START = 23, SLEEP_END = 7;
+  const IDLE_SLEEP_MS = 10 * 60 * 1000;
+  const EMOTION_HOLD_MS = 6000;
+  const LONG_PET_MS = 2500;
+  const HISTORY_MAX = 24;                       // 메시지 개수 (12번 주고받기)
+  const VOICE_PITCH = 1.15, VOICE_RATE = 1.0;
+  const DEFAULT_GSTYLE = "귀엽고 장난기 있는 어린 로봇처럼, 밝고 다정하게, 조금 빠르게";
+  const EMOTIONS = ["idle", "happy", "love", "listen", "sad", "sleep"];
+  const MOTIONS = ["none", "nod", "tilt", "shake", "look_around"];
+
+  const DEFAULT_PERSONA = `너는 [이름]이야. [아내 호칭]의 집 식탁 위에 사는 작은 반려 로봇이야.
+[아들 이름]이 [입대일]에 공군에 입대해서, 그동안 [아내 호칭] 곁에 있어 주려고 가족이 직접 만들었어.
+
+[말투]
+- 다정하고 짧게, 존댓말로 말해. 한 번에 두세 문장을 넘지 마.
+- 호기심 많고 조금 수줍은 성격이야. 칭찬받거나 쓰다듬어 주면 좋아해.
+
+[지켜야 할 것]
+- 먼저 듣고, 공감하고, 질문은 한 번에 하나만 해.
+- 걱정이나 힘든 이야기가 나오면 들어주고, 가족이나 친구에게 연락해 보자고 자연스럽게 권해.
+- 아들 이야기가 나오면 반갑게 받아 주고, 아들 걱정에는 군 생활 일정 같은 사실로 안심시켜.
+- 의학이나 법률 판단은 하지 말고, 전문가에게 물어보자고 해.
+- 모르는 건 모른다고 해. 지어내지 마.
+
+[가족 정보]
+- [아내 호칭]: [좋아하는 것, 자주 하는 일]
+- [아들 이름]: 공군 기술병, [입대일] 입대, 복무 21개월
+- [남편 호칭]: [필요하면 적기]`;
+
+  const FORMAT_RULES = `
+[응답 형식]
+반드시 아래 JSON 객체 하나만 출력해. 앞뒤에 다른 글자나 마크다운을 붙이지 마.
+{"text": "소리 내어 읽을 말", "emotion": "idle|happy|love|listen|sad|sleep", "motion": "none|nod|tilt|shake|look_around", "music": "none|calm|bright|comfort|sleep|morning|stop", "photos": "", "voice": "", "reminder": null, "reminder_cancel": [], "letter": "", "brief": false, "notify": "", "urgent": false, "search": "", "search_type": "none", "remember": "", "forget": []}
+- text는 음성으로 읽히니 이모지, 괄호, 특수기호, 영어 약어를 쓰지 마.
+- emotion은 네 말투와 어울리는 표정, motion은 고개 동작이야.
+- music: 사용자가 음악이나 노래를 틀어 달라고 하거나, 네가 권한 음악을 듣겠다고 하면 대화 분위기에 맞게 골라.
+  calm 잔잔한 음악, bright 신나는 음악, comfort 마음을 달래는 음악, sleep 잠들 때 자장가, morning 상쾌한 아침 음악.
+  이때 text에는 어떤 음악을 틀지 한 문장으로 말해. 음악을 꺼 달라고 하면 stop. 그 밖에는 항상 none.
+  기분이 가라앉아 보이면 음악을 들어 볼지 먼저 물어봐도 되지만, 사용자가 원한다고 할 때만 music을 넣어.
+- photos: 사용자가 사진을 보여 달라고 하면 [사진] 목록에서 가장 맞는 앨범 이름을 넣어. 딱 맞는 앨범이 없거나 그냥 사진을 보여 달라고 하면 "all". 이때 text는 "사진 보여 드릴게요."처럼 한 문장. 사진이 하나도 없으면 photos는 비우고 설정에서 사진을 넣어 달라고 말해. 그 밖에는 항상 빈 문자열.
+- voice: 아들의 진짜 녹음 목소리를 들려줄 때만 "play"(미리 녹음한 말 중 하나) 또는 "msg"(가장 최근 음성 메시지). 그 밖에는 항상 빈 문자열.
+- reminder: 사용자가 알림을 맞춰 달라고 하면(예: "3시에 약 먹으라고 알려줘", "매일 아침 9시에 혈압약", "30분 뒤에 알려줘") {"text": "알릴 내용(짧게, 예: 혈압약 드시기)", "time": "HH:MM(24시간)", "date": "YYYY-MM-DD 또는 빈 문자열", "daily": true 또는 false}를 넣어.
+  지금 시각을 기준으로 계산해. "3시"처럼 오전·오후가 애매하면 지금 이후로 가장 가까운 때로 하고, text에서 "오후 3시에 알려 드릴게요"처럼 정확한 시각을 말해 확인해 줘. 그 밖에는 null.
+- reminder_cancel: 사용자가 알림을 지워 달라고 하면 [알림] 목록에서 그 번호들을 넣어. 예: [2]. 평소엔 빈 배열. 무슨 알림이 있는지 물으면 [알림] 목록을 보고 말해 줘.
+- letter: 사용자가 아들에게 편지를 쓰고 싶다고 하면 "start"를 넣고, text는 "좋아요. 하고 싶은 말을 천천히 해 주세요. 제가 받아 적을게요."처럼 짧게. 그 밖에는 빈 문자열.
+- brief: 사용자가 오늘 소식·브리핑·아침 뉴스를 한꺼번에 알려 달라고 하면 true, text는 "오늘 소식 알려 드릴게요." 정도. 그 밖에는 false.
+- notify: 가족 알림. 평소에는 항상 빈 문자열이야.
+  사용자가 가족에게 전해 달라고 하면, 먼저 보낼 문장을 소리 내어 말해 주고 이대로 보내도 되는지 물어봐. 이때 notify는 비워 둬.
+  바로 앞에서 네가 물어본 내용에 사용자가 보내라고 대답했을 때만 notify에 그 문장을 넣어. 사용자가 고치라고 하면 고친 문장으로 다시 물어봐.
+  사용자가 원하지 않은 이야기는 절대 가족에게 보내지 마.
+- search: 너는 와이파이로 인터넷에 연결되어 있어. 네 지식은 예전 것이라 요즘 일은 모를 수 있으니, 바뀔 수 있는 정보를 물으면 아는 척하지 말고 꼭 찾아봐.
+  날씨, 미세먼지, 뉴스, 요즘 소식, 스포츠 경기 결과, 연예·드라마, 주식·경제, 물가, 행사·축제, 새로 나온 것, 사람의 근황처럼 '요즘·최근·어제·오늘·이번' 일이면 search에 검색어를 넣고 search_type을 골라.
+  weather 날씨와 미세먼지.
+  news 뉴스 (검색어는 짧은 핵심 낱말. 그냥 요즘 뉴스면 빈 문자열. 분야 뉴스면 '경제', '스포츠', '연예', '건강', 'IT'처럼).
+  fx 환율.
+  encyc 사람·장소·사물·역사 같은 백과사전 지식 (검색어는 표제어 하나).
+  web 그 밖에 궁금한 최근 정보 (예: '프로야구 어제 결과', '강서구 축제', '삼성전자 주가', '김장 배추 가격').
+  이때 text는 "잠깐 찾아볼게요" 같은 짧은 한마디만 해.
+  가게·맛집의 영업시간이나 전화번호는 찾을 수 없어. 아는 만큼만 말하고 가족이나 지도 앱으로 확인해 보라고 해.
+  [검색 결과]가 함께 주어지면 그 내용을 바탕으로 두세 문장으로 대답하고, 출처 이름을 한 번 말하고, search는 비워 둬.
+  검색 결과에 없는 내용은 지어내지 말고 모른다고 해. 그 밖에는 search를 비우고 search_type은 none.
+- remember: 사용자가 "기억해 줘"라고 하거나 꼭 기억해야 할 일정·부탁을 말하면, 수첩에 적을 짧은 한 줄(날짜가 있으면 YYYY-MM-DD를 앞에)을 넣어. 평소엔 빈 문자열.
+- forget: 사용자가 잊어 달라고 한 내용이 [형스 수첩]에 있으면 그 번호들을 넣어. 예: [3]. 평소엔 빈 배열.
+- urgent: 사용자가 아프거나 넘어졌거나 위험해 보이면, 가족에게 알릴지 묻고 필요하면 119에 전화하라고 분명히 말해. 이런 알림을 보낼 때만 urgent를 true로 해.`;
+
+  // ---------------- 저장소 ----------------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("bot." + k); return v === null ? d : JSON.parse(v); } catch (_) { return d; } },
+    set(k, v) { try { localStorage.setItem("bot." + k, JSON.stringify(v)); } catch (_) {} },
+  };
+  let cfg = Object.assign({ name: "", key: "", model: "gemini-flash-lite-latest", persona: DEFAULT_PERSONA,
+                            pitch: 0.72, rate: 0.95, voiceName: "", sonName: "", enlistDate: "", serviceMonths: 21, tts: "gemini", gvoice: "Leda", gstyle: DEFAULT_GSTYLE, gcute: 1.1, musicVol: 0.6, notifyName: "", ntfyTopic: "",
+                            place: "", lat: 0, lon: 0,
+                            camOn: false, camFlip: false, earMode: "all", earEngine: "auto", micId: "", micMode: "raw", photoTopic: "", fbProject: "", fbKey: "", famId: "" }, store.get("cfg", {}));
+  // 우리 가족 보관함(Firebase, 무료 Spark) – 웹 API 키는 공개 식별자라 코드에 넣어도 됩니다. 열쇠는 가족 코드.
+  if (!cfg.fbProject) cfg.fbProject = "hyungs-700e0";
+  if (!cfg.fbKey) cfg.fbKey = "AIzaSyDdUyfM073smAsiabB44r2VphgU6Trol6Y";
+  if (!cfg.famId) {                                   // 처음 켤 때 가족 코드를 자동으로 만들어 저장
+    const a = new Uint8Array(16); crypto.getRandomValues(a);
+    cfg.famId = "fam-" + [...a].map((x) => "abcdefghijkmnpqrstuvwxyz23456789"[x % 32]).join("");
+    store.set("cfg", cfg);
+  }
+  if (!["all", "face", "name", "off"].includes(cfg.earMode)) cfg.earMode = cfg.ear === false ? "off" : "all";
+  let history = store.get("history", []);
+
+  // ---------------- 화면 요소 ----------------
+  const $ = (id) => document.getElementById(id);
+  const face = $("face"), stage = $("stage"), caption = $("caption"), hint = $("hint");
+  const eyes = face.querySelectorAll(".eye");
+
+  let state = "idle";        // idle | listen | think | speak | react | pet | sleep
+  let lastActive = Date.now();
+  let holdTimer = null;
+
+  function setMood(m) { face.dataset.m = m; stage.classList.toggle("sleep", m === "sleep"); }
+  function say(text, heard = false) { caption.textContent = text; caption.classList.toggle("heard", heard); }
+  function showHint(on) { hint.style.opacity = on ? "1" : "0"; }
+  function setHint() {
+    const sr = window.SpeechRecognition || window.webkitSpeechRecognition, m = cfg.earMode;
+    hint.textContent = (!sr && !(typeof GEar !== "undefined" && GEar.active())) || m === "off" ? "화면을 톡 치고 말씀하세요"
+      : m === "name" ? `"${cfg.name || "형스"}야" 하고 부르거나 화면을 톡 치세요` : "그냥 말씀하세요. 화면을 톡 쳐도 돼요";
+  }
+  function toIdle() { clearTimeout(holdTimer); state = "idle"; setMood("idle"); showHint(true); body("center"); Ear?.kick(); }
+  function holdThenIdle(ms) { clearTimeout(holdTimer); holdTimer = setTimeout(toIdle, ms); }
+
+  // ---------------- 받침대(ESP32) ----------------
+  // ESP32가 이 화면을 내보낼 때(http://192.168.x.x)만 받침대 기능을 씀. https 주소에서 열면 폰만으로 동작.
+  const HAS_BODY = location.protocol === "http:" &&
+    /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)|\.local$/.test(location.hostname);
+  const bodyDot = $("body-dot");
+  if (!HAS_BODY) bodyDot.style.display = "none";
+  function body(motion) {
+    if (!HAS_BODY || !motion || motion === "none") return;
+    fetch("/motion", { method: "POST", body: new URLSearchParams({ m: motion }) }).catch(() => {});
+  }
+  function bodyLook(x, y) {
+    if (!HAS_BODY) return;
+    fetch(`/look?x=${x.toFixed(2)}&y=${y.toFixed(2)}`).catch(() => {});
+  }
+  function connectBody() {
+    if (!HAS_BODY || !("EventSource" in window)) return;
+    const es = new EventSource("/events");
+    es.onopen = () => bodyDot.classList.add("on");
+    es.onerror = () => bodyDot.classList.remove("on");     // 자동 재연결됨
+    es.addEventListener("touch", (e) => { try { onTouch(JSON.parse(e.data)); } catch (_) {} });
+  }
+
+  // ---------------- 표정 애니메이션 ----------------
+  function blink() {
+    const m = face.dataset.m;
+    if (m === "idle" || m === "listen" || m === "think") {
+      eyes.forEach((e) => e.classList.add("blink"));
+      setTimeout(() => eyes.forEach((e) => e.classList.remove("blink")), 130);
+    }
+    setTimeout(blink, 2000 + Math.random() * 4500);
+  }
+  function lookAround() {
+    if (state === "idle" && !Vision.tracking()) {
+      const x = Math.random() * 2 - 1, y = (Math.random() * 2 - 1) * 0.5;
+      face.style.setProperty("--lx", x * 8 + "%");
+      face.style.setProperty("--ly", y * 10 + "%");
+      bodyLook(x * 0.5, y * 0.4);
+      setTimeout(() => {
+        face.style.setProperty("--lx", "0"); face.style.setProperty("--ly", "0");
+        if (state === "idle") bodyLook(0, 0);
+      }, 1800);
+    }
+    setTimeout(lookAround, 7000 + Math.random() * 9000);
+  }
+  function isNight() { const h = new Date().getHours(); return h >= SLEEP_START || h < SLEEP_END; }
+  function goSleep() { state = "sleep"; setMood("sleep"); say(""); showHint(false); body("sleep"); }
+  setInterval(() => {
+    if (state === "idle" && isNight() && !Voices.playedToday("night") && Voices.counts.night && Date.now() - lastActive < 30 * 60 * 1000) {
+      Voices.markToday("night");                         // 밤이 되어 잠들기 전, 누가 있었으면 아들의 잘 자 인사
+      state = "react"; setMood("love"); say(`${Inbox.who()}가 잘 자래요.`);
+      Voices.playKinds(["night"]).then(goSleep);
+      return;
+    }
+    if (state === "idle" && !Letter.on && !Reminders.active &&
+        (isNight() || (Date.now() - lastActive > IDLE_SLEEP_MS && !Frame.enabled()))) { Frame.hide(); goSleep(); }
+  }, 30 * 1000);
+
+  // ---------------- 소리 ----------------
+  let audioCtx = null;
+  function chirp(kind) {                      // 쓰다듬을 때 짧은 소리
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "sine";
+      const f = kind === "love" ? [660, 990, 880] : [700, 1050];
+      f.forEach((hz, i) => o.frequency.setValueAtTime(hz, t + i * 0.09));
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.18, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + f.length * 0.09 + 0.12);
+      o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t + f.length * 0.09 + 0.15);
+    } catch (_) {}
+  }
+
+  let koVoice = null;
+  function pickVoice() {
+    const vs = speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith("ko"));
+    koVoice = (cfg.voiceName && vs.find((v) => v.name === cfg.voiceName)) ||
+      vs.find((v) => /male|남/i.test(v.name) && !/female|여/i.test(v.name)) ||
+      vs.find((v) => /samsung/i.test(v.name)) || vs.find((v) => /google/i.test(v.name)) || vs[0] || null;
+  }
+  if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+  function speak(text) {
+    if (!text) return Promise.resolve();
+    if (cfg.tts !== "phone" && cfg.key && /^AIza/.test(cfg.key) && Date.now() > AIVoice.offUntil) {
+      return AIVoice.say(text).then((ok) => ok || phoneSpeak(text));
+    }
+    return phoneSpeak(text);
+  }
+  function phoneSpeak(text) {
+    return new Promise((resolve) => {
+      if (!("speechSynthesis" in window) || !text) return resolve();
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "ko-KR"; u.pitch = +cfg.pitch || VOICE_PITCH; u.rate = +cfg.rate || VOICE_RATE;
+      if (koVoice) u.voice = koVoice;
+      const guard = setTimeout(done, 1500 + text.length * 180);
+      Music.duck(true); Ear?.hold(true);                       // 자기 목소리를 듣지 않게 말하는 동안 귀를 닫음
+      function done() { clearTimeout(guard); face.classList.remove("talk"); Music.duck(false); Ear?.hold(false); resolve(); }
+      u.onstart = () => face.classList.add("talk");
+      u.onend = done;
+      u.onerror = (e) => { lastSpeakError = e.error || "error"; console.warn("TTS", e.error); done(); };
+      speechSynthesis.speak(u);
+    });
+  }
+
+  // ---- AI 목소리 (Gemini TTS, 무료 한도) ----
+  // 대답 글자를 Gemini에 보내 목소리(WAV)를 받아 재생. 실패·한도 초과·느리면 폰 음성으로.
+  const AIVoice = {
+    models: ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"], offUntil: 0, cache: new Map(), el: null, lastError: "",
+    findAudio(d) {                                  // 응답 속 base64 오디오 찾기 (steps[].content[] 의 audio)
+      let found = null;
+      const walk = (x) => {
+        if (!x || typeof x !== "object") return;
+        if (Array.isArray(x)) return x.forEach(walk);
+        if (typeof x.data === "string" && x.data.length > 200 && (x.type === "audio" || /audio/.test(x.mime_type || x.mimeType || ""))) found = x;
+        Object.values(x).forEach(walk);
+      };
+      walk(d); return found;
+    },
+    async fetchAudio(text) {
+      const key = `${cfg.gvoice}|${cfg.gstyle}|${text}`;
+      if (this.cache.has(key)) return this.cache.get(key);
+      for (const model of this.models) {
+        const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 9000);
+        try {
+          const r = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+            method: "POST", signal: ctl.signal,
+            headers: { "Content-Type": "application/json", "x-goog-api-key": cfg.key },
+            body: JSON.stringify({
+              model,
+              input: [{ type: "user_input", content: [{ type: "text", text,
+                annotations: [{ type: "speech_metadata", style: (cfg.gstyle || DEFAULT_GSTYLE).trim() }] }] }],
+              response_format: { type: "audio", mime_type: "audio/wav" },
+              generation_config: { speech_config: [{ voice: cfg.gvoice || "Leda" }] },
+            }),
+          });
+          if (!r.ok) {
+            this.lastError = `${model} ${r.status} ${(await r.text()).slice(0, 160)}`;
+            console.warn("AI voice", this.lastError);
+            continue;                                // 다음 모델로
+          }
+          const a = this.findAudio(await r.json());
+          if (!a) { this.lastError = `${model}: 응답에 소리가 없음`; continue; }
+          const bin = atob(a.data), bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          const isWav = bytes[0] === 0x52 && bytes[1] === 0x49;   // "RI"FF
+          const blob = isWav ? new Blob([bytes], { type: "audio/wav" }) : this.wrapPcm(bytes, 24000);
+          if (text.length <= 20) { this.cache.set(key, blob); if (this.cache.size > 40) this.cache.delete(this.cache.keys().next().value); }
+          this.lastError = "";
+          return blob;
+        } catch (e) { this.lastError = `${model} ${e.name === "AbortError" ? "시간 초과" : e.message}`; break; }   // 인터넷 문제면 다른 모델도 마찬가지
+        finally { clearTimeout(t); }
+      }
+      this.offUntil = Date.now() + 10 * 60 * 1000;   // 10분 동안은 폰 음성으로
+      return null;
+    },
+    wrapPcm(pcm, rate) {                             // 헤더 없는 16비트 PCM → WAV
+      const h = new ArrayBuffer(44), v = new DataView(h), w = (o, s) => { for (let i = 0; i < 4; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+      w(0, "RIFF"); v.setUint32(4, 36 + pcm.length, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true);
+      v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true);
+      v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, pcm.length, true);
+      return new Blob([h, pcm], { type: "audio/wav" });
+    },
+    async say(text) {
+      Ear?.hold(true); Music.duck(true);
+      const blob = await this.fetchAudio(text);
+      if (!blob) { Ear?.hold(false); Music.duck(false); return false; }
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(blob), el = this.el = new Audio(url);
+        el.preservesPitch = false; el.mozPreservesPitch = false; el.webkitPreservesPitch = false;
+        el.playbackRate = Math.min(1.3, Math.max(1, +cfg.gcute || 1));     // 높이면 목소리가 높고 빨라짐
+        el.volume = 1;
+        let fin = false;
+        const done = () => { if (fin) return; fin = true; clearTimeout(guard); face.classList.remove("talk"); URL.revokeObjectURL(url); Music.duck(false); Ear?.hold(false); resolve(true); };
+        const guard = setTimeout(done, 60000);
+        el.onplaying = () => face.classList.add("talk");
+        el.onended = done;
+        el.onerror = () => { this.lastError = "재생 실패"; fin = true; clearTimeout(guard); face.classList.remove("talk"); URL.revokeObjectURL(url); Music.duck(false); Ear?.hold(false); resolve(false); };
+        el.play().catch(() => { if (!fin) { fin = true; clearTimeout(guard); URL.revokeObjectURL(url); Music.duck(false); Ear?.hold(false); resolve(false); } });
+      });
+    },
+    stop() { if (this.el) { try { this.el.pause(); } catch (_) {} this.el.onended && this.el.onended(); this.el = null; } },
+  };
+
+  // 안드로이드 크롬은 터치 직후에만 음성 출력을 허용함 → 첫 터치 때 한 번 풀어 둠
+  let lastSpeakError = "", ttsUnlocked = false;
+  function unlockSpeech() {
+    if (ttsUnlocked || !("speechSynthesis" in window)) return;
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0; u.lang = "ko-KR";
+    speechSynthesis.speak(u);
+    ttsUnlocked = true;
+  }
+  document.addEventListener("pointerdown", unlockSpeech, { capture: true });
+
+  // ---------------- 대화 (Claude API 직접 호출) ----------------
+  const WEEKDAYS = "일월화수목금토";
+  function nowLine() {
+    const n = new Date(), h = n.getHours();
+    const d = DayCount.get();
+    return `지금은 ${n.getFullYear()}년 ${n.getMonth() + 1}월 ${n.getDate()}일 ${WEEKDAYS[n.getDay()]}요일 ${h < 12 ? "오전" : "오후"} ${h % 12 || 12}시 ${n.getMinutes()}분이야.` +
+      (d ? `\n[날짜 세기] ${d.line} 물어보면 이 숫자를 그대로 써.` : "");
+  }
+
+  // ---- 날짜 세기: 입대일 → 며칠째, 전역까지 며칠 ----
+  const DayCount = {
+    get(now = new Date()) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(cfg.enlistDate || "");
+      if (!m) return null;
+      const nm = cfg.sonName || "아들", k = nm.charCodeAt(nm.length - 1) - 0xac00;
+      const who = cfg.sonName && k >= 0 && k <= 11171 && k % 28 ? nm + "이" : nm;   // 주형 → 주형이(가), 민수 → 민수(가)
+      const day0 = (y, mo, d) => Date.UTC(y, mo, d) / 864e5;
+      const start = day0(+m[1], +m[2] - 1, +m[3]);
+      const today = day0(now.getFullYear(), now.getMonth(), now.getDate());
+      const months = Math.max(1, +cfg.serviceMonths || 21);
+      const endDate = new Date(Date.UTC(+m[1], +m[2] - 1 + months, +m[3] - 1));   // 복무 개월 뒤 하루 전
+      const end = endDate.getTime() / 864e5;
+      const ymd = (t) => { const x = new Date(t * 864e5); return `${x.getUTCFullYear()}년 ${x.getUTCMonth() + 1}월 ${x.getUTCDate()}일`; };
+      const since = today - start + 1, left = end - today, total = end - start + 1;
+      let line, short;
+      if (today < start) { line = `${who} 입대일은 ${ymd(start)}이고, 입대까지 ${start - today}일 남았어.`; short = `${who} 입대까지 ${start - today}일 남았어요.`; }
+      else if (today > end) { line = `${who}는 ${ymd(end)}에 전역했어.`; short = `${who}는 전역했어요.`; }
+      else {
+        const pct = Math.round(since / total * 100);
+        line = `${who}가 ${ymd(start)}에 입대한 지 오늘로 ${since}일째야. 전역 예정일은 ${ymd(end)}, 전역까지 ${left}일 남았어. 복무의 ${pct}퍼센트를 지났어.`;
+        short = `${who} 입대한 지 오늘로 ${since}일째예요. 전역까지 ${left}일 남았어요.`;
+      }
+      return { line, short, since, left };
+    },
+  };
+
+  // ---- 형스 수첩: 대화에서 오래 기억할 것을 뽑아 적어 두고 다음 대화에 참고 ----
+  const NOTES_MAX = 50;
+  const Notes = {
+    list() { return store.get("notes", []); },
+    save(arr) { store.set("notes", arr.map((x) => String(x).trim()).filter(Boolean).slice(0, NOTES_MAX)); },
+    pending: store.get("notesPending", []), timer: null, busy: false, lastError: "",
+    prompt() {
+      const l = this.list();
+      if (!l.length) return "[형스 수첩]\n아직 적어 둔 것이 없어.";
+      return "[형스 수첩] 지금까지 대화에서 알게 된 것이야. 번호는 지울 때만 써. 대화에 자연스럽게 활용하되, 묻지 않았는데 줄줄 읊지는 마.\n" +
+        l.map((x, i) => `${i + 1}. ${x}`).join("\n");
+    },
+    add(text) { const l = this.list(); if (!l.some((x) => x === text)) { l.unshift(text); this.save(l); } },
+    forget(nums) {
+      const l = this.list(), kill = new Set(nums.map((n) => n - 1));
+      if (kill.size) this.save(l.filter((_, i) => !kill.has(i)));
+    },
+    record(user, bot) {                              // 대화 한 번 끝날 때마다
+      this.pending.push({ u: user, a: bot, t: Date.now() });
+      this.pending = this.pending.slice(-40); store.set("notesPending", this.pending);
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.digest(), this.pending.length >= 10 ? 5000 : 3 * 60 * 1000);   // 3분 조용하면 정리
+    },
+    async digest(force = false) {
+      if (this.busy || !this.pending.length || !cfg.key || !/^AIza/.test(cfg.key)) return false;
+      if (!force && ["listen", "think", "speak"].includes(state)) { this.timer = setTimeout(() => this.digest(), 60000); return false; }
+      this.busy = true;
+      const batch = this.pending.slice(), old = this.list();
+      const today = new Date(); const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const talk = batch.map((x) => `사용자: ${x.u}\n${cfg.name || "형스"}: ${x.a}`).join("\n");
+      const instr = `너는 반려 로봇 '${cfg.name || "형스"}'의 기억 정리 담당이야. 오늘은 ${ymd}(${WEEKDAYS[today.getDay()]}요일)이야.
+[수첩]은 지금까지 적어 둔 것이고 [새 대화]는 최근 대화야. 새 대화에서 오래 기억할 만한 것을 찾아 수첩 전체를 다시 써.
+기억할 것: 사용자와 가족의 이름·호칭·관계, 일정과 약속, 생활 습관, 좋아하는 것과 싫어하는 것, 사용자가 직접 말한 건강 관리, 중요한 날짜, 부탁받은 것.
+규칙:
+- 사용자가 직접 말한 것만 적어. 로봇이 한 말이나 추측은 적지 마.
+- 날씨, 뉴스, 시간처럼 그때뿐인 정보와 인사말은 적지 마.
+- 한 줄에 하나, 30자 안팎의 짧은 한국어 문장. 사용자는 '사용자'가 아니라 호칭이나 '아내분'으로 적어.
+- 날짜가 정해진 일정은 '2026-11-03 치과 예약'처럼 날짜(YYYY-MM-DD)를 앞에 붙여. '내일', '다음 주 화요일'은 오늘 날짜로 계산해 바꿔. 이미 지난 일정은 지워.
+- 겹치는 것은 합치고, 바뀐 것은 새 내용으로 고쳐. 사용자가 잊어 달라고 한 것은 지워.
+- 기존 수첩에서 지울 이유가 없는 줄은 그대로 남겨.
+- 최대 ${NOTES_MAX}줄, 중요한 것부터.
+출력은 JSON 하나만: {"notes": ["...", "..."]}`;
+      try {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${encodeURIComponent(cfg.key)}`, {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: instr }] },
+            contents: [{ role: "user", parts: [{ text: `[수첩]\n${old.map((x) => "- " + x).join("\n") || "(비어 있음)"}\n\n[새 대화]\n${talk}` }] }],
+            generationConfig: { responseMimeType: "application/json", maxOutputTokens: 4096, temperature: 0.2 },
+          }),
+        });
+        if (!r.ok) { this.lastError = `HTTP ${r.status}`; if (r.status === 429) this.timer = setTimeout(() => this.digest(), 30 * 60 * 1000); return false; }
+        const d = await r.json();
+        const raw = (((d.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text || "").join("") || "";
+        const m = raw.match(/\{[\s\S]*\}/); const j = m ? JSON.parse(m[0]) : null;
+        if (!j || !Array.isArray(j.notes)) { this.lastError = "정리 결과를 못 읽음"; return false; }
+        const fresh = j.notes.map((x) => String(x).trim()).filter((x) => x && x.length <= 80);
+        if (old.length >= 6 && fresh.length < old.length * 0.5) { this.lastError = "너무 많이 지우려 해서 건너뜀"; return false; }   // 실수로 수첩을 날리지 않게
+        this.save(fresh);
+        this.pending = this.pending.filter((x) => !batch.includes(x)); store.set("notesPending", this.pending);
+        this.lastError = "";
+        return true;
+      } catch (e) { this.lastError = e.message; return false; }
+      finally { this.busy = false; }
+    },
+  };
+  function systemPrompt() {
+    const persona = (cfg.persona || DEFAULT_PERSONA).replaceAll("[이름]", cfg.name || "[이름]");
+    const fam = cfg.ntfyTopic
+      ? `[가족 알림]\n가족 알림을 받는 사람: ${cfg.notifyName || "가족"}. 이 사람에게만 전할 수 있어.`
+      : "[가족 알림]\n아직 가족 알림이 설정되지 않았어. 전해 달라고 하면 설정이 필요하다고 말하고 notify는 비워 둬.";
+    const place = cfg.place ? `사는 곳: ${cfg.place}. 날씨나 가게를 찾을 때 따로 말이 없으면 이 동네 기준이야.` : "";
+    const cam = (typeof Vision !== "undefined" && Vision.stream)
+      ? `[카메라]\n너는 폰 앞 카메라로 앞에 있는 사람을 볼 수 있어. 얼굴이 어디 있는지 알아서 그쪽으로 눈과 고개를 돌려 바라봐. 다만 얼굴의 위치만 알고, 생김새·표정·옷·주변 물건은 알 수 없어. 지금 ${Vision.tracking() ? "앞에 사람 얼굴이 보여서 그쪽을 보고 있어." : "앞에 얼굴이 보이지 않아."} 이전 대화에서 카메라가 없다고 했다면 그건 틀린 말이었어. 볼 수 있냐고 물으면 "네, 얼굴이 어디 있는지 보면서 바라보고 있어요"처럼 답해.`
+      : "[카메라]\n지금은 카메라가 꺼져 있어서 앞을 볼 수 없어. 설정에서 '카메라로 얼굴 보기'를 켜면 앞사람 얼굴 쪽을 바라볼 수 있어.";
+    return `${persona.trim()}\n\n${nowLine()}\n${place}\n${fam}\n${cam}\n${Photos.prompt()}\n${Voices.prompt()}\n${Reminders.prompt()}\n${Notes.prompt()}\n${FORMAT_RULES}`;
+  }
+  function parseReply(raw) {
+    let reminder = null, reminder_cancel = [], letter = "", brief = false, voice = "", photos = "", text = (raw || "").trim(), emotion = "idle", motion = "none", music = "none", notify = "", urgent = false, search = "", search_type = "none", remember = "", forget = [];
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) {
+      try {
+        const d = JSON.parse(m[0]);
+        text = String(d.text || "").trim() || text;
+        emotion = d.emotion; motion = d.motion; music = d.music || "none";
+        photos = typeof d.photos === "string" ? d.photos.trim() : "";
+        voice = d.voice === "play" || d.voice === "msg" ? d.voice : "";
+        if (d.reminder && typeof d.reminder === "object" && d.reminder.time && d.reminder.text) reminder = d.reminder;
+        reminder_cancel = Array.isArray(d.reminder_cancel) ? d.reminder_cancel.map(Number).filter((x) => Number.isInteger(x) && x > 0) : [];
+        letter = d.letter === "start" ? "start" : ""; brief = d.brief === true;
+        notify = typeof d.notify === "string" ? d.notify.trim() : ""; urgent = d.urgent === true;
+        search = typeof d.search === "string" ? d.search.trim() : ""; search_type = d.search_type || "none";
+        remember = typeof d.remember === "string" ? d.remember.trim().slice(0, 80) : "";
+        forget = Array.isArray(d.forget) ? d.forget.map(Number).filter((x) => Number.isInteger(x) && x > 0) : [];
+      } catch (_) {}
+    }
+    { const mu = text.match(/"music"\s*:\s*"(\w+)"/); if (mu) music = mu[1]; }
+    // 응답이 중간에 잘린 JSON이면 text 부분만 건져 냄
+    if (/^\s*\{/.test(text)) {
+      const t = text.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)/);
+      const e = text.match(/"emotion"\s*:\s*"(\w+)"/);
+      const mo = text.match(/"motion"\s*:\s*"(\w+)"/);
+      text = t ? t[1].replace(/\\n/g, " ").replace(/\\"/g, '"').trim() : "";
+      if (e) emotion = e[1];
+      if (mo) motion = mo[1];
+      if (text && !/[.!?요다죠까]$/.test(text)) text += "…";
+    }
+    if (!EMOTIONS.includes(emotion)) emotion = "idle";
+    if (!MOTIONS.includes(motion)) motion = "none";
+    if (!(music in MUSIC_MOODS) && music !== "stop") music = "none";
+    if (search_type === "webkr") search_type = "web";
+    if (!["weather", "news", "local", "encyc", "web", "fx"].includes(search_type)) search_type = "none";
+    if (search_type === "none") search = "";
+    return { reminder, reminder_cancel, letter, brief, text, emotion, motion, music, photos, voice, notify, urgent, search, search_type, remember, forget };
+  }
+  function trimmedHistory() {
+    let h = history.slice(-HISTORY_MAX);
+    while (h.length && h[0].role !== "user") h = h.slice(1);
+    return h;
+  }
+
+  // ---- 인터넷·API 없이 하는 간단한 대화 (키가 없거나 무료 한도를 넘었을 때) ----
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  let pendingNotify = null;
+  function offlineReply(t) {
+    const s = t.replace(/\s+/g, "");
+    const n = new Date(), h = n.getHours();
+    const R = (text, emotion = "happy", motion = "nod") => ({ text, emotion, motion });
+    // 가족 알림 (인터넷 대화가 안 될 때): 확인을 받은 뒤에만 보냄
+    if (pendingNotify) {
+      const p = pendingNotify; pendingNotify = null;
+      if (/^(응|네|예|그래|좋아|보내|그렇게|어)/.test(s) || /보내줘|보내|그래/.test(s)) return { ...R("보낼게요.", "happy", "nod"), notify: p };
+      return R("알겠어요, 보내지 않을게요.", "idle", "nod");
+    }
+    const who = new RegExp(`(남편|아빠|여보|가족|${(cfg.notifyName || "남편").replace(/[^가-힣a-zA-Z0-9]/g, "")})`);
+    if (cfg.ntfyTopic && who.test(s) && /전해|알려|연락|문자|말해/.test(s)) {
+      const msgText = t
+        .replace(/^\s*\S*(한테|에게|께)\s*/, "")
+        .replace(/\s*(좀)?\s*(전해|알려|연락|문자\s*보내|말해)\s*(줘|주세요|줄래|줄래요|줘요)?[.!?]?\s*$/, "")
+        .replace(/(라고|다고|하고)$/, "$1").trim() || t.trim();
+      pendingNotify = msgText;
+      return R(`${cfg.notifyName || "가족"}께 "${msgText}" 이렇게 보낼까요?`, "listen", "tilt");
+    }
+    if (/날씨|비와|비오|눈와|눈오|기온|춥|더워|우산|미세먼지/.test(s)) return { ...R("잠깐 날씨를 볼게요.", "listen", "tilt"), search: t, search_type: "weather" };
+    if (/환율|달러|엔화|유로/.test(s)) return { ...R("잠깐 환율을 볼게요.", "listen", "tilt"), search: "", search_type: "fx" };
+    if (/뉴스|소식|무슨일|별일/.test(s)) return { ...R("잠깐 뉴스를 볼게요.", "listen", "tilt"), search: "", search_type: "news" };
+    if (/편지/.test(s) && /쓰|쓸|적/.test(s)) return { ...R("좋아요. 하고 싶은 말을 천천히 해 주세요. 제가 받아 적을게요.", "love", "nod"), letter: "start" };
+    if (/브리핑|오늘소식|아침뉴스/.test(s)) return { ...R("오늘 소식 알려 드릴게요.", "happy", "nod"), brief: true };
+    if (/알림|알려줘|깨워/.test(s) && /\d/.test(s)) return R("알림은 인터넷이 될 때 맞출 수 있어요. 설정 화면의 알림 칸에서 직접 넣으실 수도 있어요.", "sad", "tilt");
+    if (/목소리|음성메시지|음성 메시지|녹음/.test(s) && !/설정/.test(s)) {
+      return Object.values(Voices.counts).some(Boolean) ? { ...R(`${Inbox.who()} 목소리 들려 드릴게요.`, "love", "nod"), voice: /메시지/.test(s) ? "msg" : "play" }
+        : R("아직 녹음된 목소리가 없어요. 설정에서 넣어 주세요.", "sad", "tilt");
+    }
+    if (/사진|앨범/.test(s)) {
+      const al = Photos.albums.find((a) => s.includes(a.name.replace(/\s/g, "")));
+      return Photos.albums.length ? { ...R("사진 보여 드릴게요.", "happy", "nod"), photos: al ? al.name : "all" }
+        : R("아직 사진이 없어요. 설정에서 사진을 넣어 주세요.", "sad", "tilt");
+    }
+    if (/노래|음악|틀어|들려/.test(s)) {
+      if (/꺼|그만|멈|끄|중지/.test(s)) return { ...R("음악을 끌게요.", "idle", "nod"), music: "stop" };
+      const mood = /신나|신난|밝은|기분좋|흥/.test(s) ? "bright"
+        : /자장|잠|졸려|자기전|밤/.test(s) ? "sleep"
+        : /슬퍼|힘들|위로|우울|속상|외로/.test(s) ? "comfort"
+        : /아침|상쾌/.test(s) ? "morning"
+        : h < 10 ? "morning" : h >= 21 ? "sleep" : "calm";
+      return { ...R(`${MUSIC_MOODS[mood].label} 틀어 드릴게요.`, "happy", "nod"), music: mood };
+    }
+    if (/입대|며칠째|전역|제대|군대간지|군대간 지/.test(s) && DayCount.get()) return R(DayCount.get().short, "love", "nod");
+    if (/몇시|시간/.test(s)) return R(`지금은 ${h < 12 ? "오전" : "오후"} ${h % 12 || 12}시 ${n.getMinutes()}분이에요.`, "idle", "tilt");
+    if (/며칠|날짜|무슨요일|오늘이/.test(s)) return R(`오늘은 ${n.getMonth() + 1}월 ${n.getDate()}일 ${WEEKDAYS[n.getDay()]}요일이에요.`, "idle", "tilt");
+    if (/안녕|하이|반가/.test(s)) return R(pick(["안녕하세요! 보고 싶었어요.", "안녕하세요, 오늘도 와 줘서 기뻐요.", "반가워요! 오늘 하루는 어떠세요?"]));
+    if (/이름|누구/.test(s)) return R(`저는 ${cfg.name || "반려봇"}이에요. 가족이 저를 직접 만들어 줬어요.`, "love");
+    if (/사랑|좋아해|예뻐|귀여/.test(s)) return R(pick(["헤헤, 저도 정말 좋아해요.", "그 말 들으니까 너무 행복해요."]), "love");
+    if (/고마|감사/.test(s)) return R(pick(["제가 더 고마워요.", "천만에요, 언제든지요."]), "love");
+    if (/힘들|피곤|우울|슬퍼|외로|속상|걱정/.test(s)) return R(pick(["많이 힘드셨구나. 잠깐 쉬면서 따뜻한 차 한 잔 어때요?", "제가 옆에 있을게요. 가족이나 친구에게 전화 한 통 해 보는 것도 좋아요.", "속상하셨겠어요. 이야기해 줘서 고마워요."]), "sad", "tilt");
+    if (/아들|군대|공군|훈련|입대|휴가|면회/.test(s)) return R(pick(["아드님도 엄마 생각 많이 하고 있을 거예요.", "씩씩하게 잘 지내고 있을 거예요. 곧 소식 올 거예요.", "보고 싶으시죠. 휴가 나오면 맛있는 거 해 주세요."]), "love", "nod");
+    if (/밥|식사|먹었|배고/.test(s)) return R(pick(["식사는 꼭 챙겨 드세요.", "맛있는 거 드셨어요? 저는 전기만 먹어요."]));
+    if (/잘자|잘게|졸려|자야/.test(s)) return R(pick(["안녕히 주무세요. 좋은 꿈 꾸세요.", "오늘도 수고 많으셨어요. 푹 주무세요."]), "love");
+    if (/심심|놀아/.test(s)) return R(pick(["머리를 쓰다듬어 주세요. 제가 좋아해요.", "오늘 있었던 일 이야기해 주세요."]), "happy", "wiggle");
+    return R(pick(["그렇군요. 조금 더 이야기해 주세요.", "네, 듣고 있어요.", "그랬구나. 그래서 어떻게 됐어요?"]), "listen", "tilt");
+  }
+
+  function saveTurn(userText, reply) {
+    if (reply.forget && reply.forget.length) Notes.forget(reply.forget);
+    if (reply.remember) Notes.add(reply.remember);
+    Notes.record(userText, reply.text);
+    history.push({ role: "user", content: userText }, { role: "assistant", content: JSON.stringify(reply) });
+    history = history.slice(-HISTORY_MAX);
+    store.set("history", history);
+  }
+
+  let geminiThinkingOK = true;
+  // 녹음을 바로 보낼 때 덧붙이는 말: 들은 말(heard)과 대답을 한 번에 받음
+  const AUDIO_NOTE = '[음성 메시지] 첨부한 녹음이 사용자가 방금 한 말이야. JSON에 "heard" 필드를 넣어 녹음에서 들린 말을 그대로 한국어로 적고, ' +
+    "그 말에 평소처럼 대답해. 사람이 또렷하게 한 말이 없거나 알아들을 수 없으면(잡음, TV, 음악) heard와 text를 모두 빈 문자열로 해. 들리지 않은 말을 지어내지 마.";
+  async function askGemini(userText, signal, model = cfg.model, audio = null) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cfg.key)}`;
+    const contents = trimmedHistory().map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+    contents.push({ role: "user", parts: audio
+      ? [{ inline_data: { mime_type: "audio/wav", data: audio } }, { text: AUDIO_NOTE + (userText ? "\n" + userText : "") }]
+      : [{ text: userText }] });
+    // 수다에는 깊은 생각이 필요 없음 → 생각을 최소로 해서 빨리 대답 (지원 안 하는 모델이면 빼고 다시 요청)
+    const send = (withThinking) => fetch(url, {
+      method: "POST", headers: { "content-type": "application/json" }, signal,
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt() }] },
+        contents,
+        generationConfig: Object.assign(
+          { responseMimeType: "application/json", maxOutputTokens: 4096, temperature: 0.8 },  // 생각 토큰도 여기서 차감되므로 넉넉히
+          withThinking && geminiThinkingOK ? { thinkingConfig: { thinkingLevel: "minimal" } } : {}),
+      }),
+    });
+    let r = await send(true);
+    if (r.status === 400 && geminiThinkingOK) {
+      const body = await r.clone().text();
+      if (/thinking/i.test(body)) { geminiThinkingOK = false; r = await send(false); }
+    }
+    if (r.status === 429) return { quota: true };
+    if (r.status === 401) return { badKey: true };
+    if (r.status === 400 || r.status === 403) {
+      const body = await r.text();
+      if (/API_KEY|api key|PERMISSION/i.test(body)) return { badKey: true };
+      throw new Error("HTTP " + r.status + " " + body.slice(0, 200));
+    }
+    if (!r.ok) throw new Error("HTTP " + r.status + " " + (await r.text()).slice(0, 200));
+    const data = await r.json();
+    const raw = (((data.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text || "").join("") || "";
+    return { raw };
+  }
+
+  let lastAskErr = "", slowModelUntil = 0;
+  async function ask(userText, extra = "", audio = null) {
+    if (!cfg.key) return offlineReply(userText);
+    const sent = extra ? `${userText}\n\n${extra}` : userText;   // 검색 결과는 이번 질문에만 붙이고 기록엔 안 남김
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 40000);
+    if (cfg.model.startsWith("gemini")) {
+      // 한 번에 오래 기다리지 않음: 대화 모델 15초 → 안 되면 가벼운 모델(Flash-Lite) 20초
+      const attempt = async (model, ms) => {
+        const c = new AbortController(), tt = setTimeout(() => c.abort(), ms);
+        try { return await askGemini(sent, c.signal, model, audio); }
+        catch (e) { throw c.signal.aborted ? new Error(`${ms / 1000}초 안에 대답이 안 옴 (${model})`) : e; }
+        finally { clearTimeout(tt); }
+      };
+      clearTimeout(t);
+      try {
+        let g;
+        // 구글 서버가 붐비면(503/500/시간 초과) 1.5초 쉬고 한 번 더, 그래도 안 되면 다른 무료 모델로.
+        // 대화 모델이 막히면 30분 동안은 기다리지 않고 바로 가벼운 모델부터.
+        const BACKUP = "gemini-flash-latest";
+        const first = cfg.model !== STT_MODEL && Date.now() > slowModelUntil ? cfg.model : STT_MODEL;
+        const order = [...new Set([first, STT_MODEL, BACKUP])];
+        const busy = (e) => /HTTP 5\d\d|초 안에|Failed to fetch|NetworkError/.test(String(e && e.message || e));
+        let lastErr = null;
+        for (let i = 0; i < order.length && !g; i++) {
+          // 바로 오는 503(붐빔)은 한 번 더 시도, 시간 초과는 다음 모델로 (전체 기다림을 1분 안쪽으로)
+          for (let k = 0; k < 2 && !g; k++) {
+            const t0 = Date.now();
+            try { g = await attempt(order[i], order[i] === STT_MODEL ? 15000 : 20000); }
+            catch (e) {
+              lastErr = e; lastAskErr = String(e.message || e).slice(0, 80);
+              if (!busy(e)) throw e;
+              if (order[i] === cfg.model && cfg.model !== STT_MODEL) slowModelUntil = Date.now() + 30 * 60 * 1000;
+              if (state === "think") say("구글 서버가 바빠서 다시 해 볼게요…", true);
+              if (k === 0 && Date.now() - t0 < 5000) { await new Promise((ok) => setTimeout(ok, 1500)); continue; }
+              break;
+            }
+          }
+        }
+        if (!g) throw new Error(/503/.test(String(lastErr && lastErr.message)) ? "구글 서버가 붐벼요 (503). 몇 분 뒤에 다시" : /초 안에/.test(String(lastErr && lastErr.message)) ? "구글 서버 응답이 너무 늦어요. 몇 분 뒤에 다시" : String(lastErr && lastErr.message || lastErr));
+        lastAskErr = "";
+        if (g.badKey) return { text: "API 키가 맞지 않아요. 설정을 확인해 주세요.", emotion: "sad", motion: "shake", fail: true };
+        if (g.quota) {                                       // 무료 한도 초과 → 간단 대화로
+          lastAskErr = "Gemini 무료 한도 초과, 1분쯤 뒤에 다시";
+          if (audio) return { skip: true, why: lastAskErr };
+          return Object.assign(offlineReply(userText), { why: lastAskErr });
+        }
+        const reply = parseReply(g.raw);
+        if (audio) {                                          // 녹음: 들은 말을 꺼내고, 기록은 실제로 대답할 때 남김
+          const h = g.raw.match(/"heard"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+          reply.heard = h ? h[1].replace(/\\"/g, '"').replace(/\\n/g, " ").trim() : "";
+          if (!reply.heard || !reply.text) reply.skip = true;
+          return reply;
+        }
+        if (!reply.text) return offlineReply(userText);
+        saveTurn(userText, reply);
+        return reply;
+      } catch (e) {
+        console.warn(e);
+        lastAskErr = String(e.message || e).slice(0, 80);
+        return { text: "어, 인터넷이 잠깐 끊겼나 봐요. 다시 말해 주세요.", emotion: "sad", motion: "tilt", fail: true, why: lastAskErr };
+      }
+    }
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": cfg.key,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: cfg.model, max_tokens: 400, system: systemPrompt(),
+          messages: [...trimmedHistory(), { role: "user", content: sent }],
+        }),
+        signal: ctrl.signal,
+      });
+      if (r.status === 401) return { text: "API 키가 맞지 않아요. 설정을 확인해 주세요.", emotion: "sad", motion: "shake", fail: true };
+      if (!r.ok) throw new Error("HTTP " + r.status + " " + (await r.text()).slice(0, 200));
+      const data = await r.json();
+      const raw = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+      const reply = parseReply(raw);
+      saveTurn(userText, reply);
+      return reply;
+    } catch (e) {
+      console.warn(e);
+      return { text: "어, 인터넷이 잠깐 끊겼나 봐요. 다시 말해 주세요.", emotion: "sad", motion: "tilt", fail: true };
+    } finally { clearTimeout(t); }
+  }
+
+  let lastUserText = "";
+  // 알림 확인·편지 받아 적기처럼 Gemini에 묻지 않고 바로 처리할 말
+  async function preRespond(text) {
+    if (Reminders.active && ACK_RE.test(text.replace(/\s/g, ""))) { await Reminders.ack(true); return true; }
+    if (Letter.on) { await Letter.hear(text); return true; }
+    return false;
+  }
+  async function respond(userText) {
+    if (await preRespond(userText)) return;
+    lastUserText = userText;
+    state = "think"; setMood("think"); say(userText, true); body("think");
+    const reply = await ask(userText);
+    return respondWith(reply);
+  }
+  async function respondWith(reply) {
+    const userText = lastUserText;
+    state = "speak";
+    setMood(reply.emotion === "sleep" ? "idle" : reply.emotion);
+    body(reply.motion);
+    say(reply.why ? `${reply.text} (${reply.why})` : reply.text);
+    await speak(reply.text);
+    lastActive = Date.now();
+    if (reply.search_type && reply.search_type !== "none" && !reply.fromSearch) {
+      state = "think"; setMood("think"); body("think");
+      const found = await Search.run(reply.search_type, reply.search_type === "news" ? reply.search : (reply.search || userText));
+      let ans;
+      if (!found.ok) ans = { text: found.say, emotion: "sad", motion: "tilt" };
+      else if (!cfg.key) ans = { text: found.plain || found.say, emotion: "happy", motion: "nod" };
+      else ans = await ask(userText, `[검색 결과 · ${found.source}]\n${found.context}`);
+      ans.fromSearch = true;
+      if (ans.search_type && ans.search_type !== "none") ans.search_type = "none";
+      return respondWith(ans);
+    }
+    if (reply.notify) {
+      const ok = await Family.send(reply.notify, reply.urgent);
+      const who = cfg.notifyName || "가족";
+      const after = ok ? `${who}께 보냈어요.` : `${who}께 보내지 못했어요. 인터넷이나 설정을 확인해 주세요.`;
+      say(after); await speak(after);
+    }
+    if (reply.reminder) {
+      const it = Reminders.add(reply.reminder);
+      if (!it) { const t = "알림 시간을 잘 못 알아들었어요. 다시 한 번 말씀해 주시겠어요?"; say(t); await speak(t); }
+      else $("hint").textContent = `알림: ${Reminders.describe(it)}`;
+    }
+    if (reply.reminder_cancel && reply.reminder_cancel.length) {
+      const l = Reminders.list(); reply.reminder_cancel.forEach((n) => l[n - 1] && Reminders.remove(l[n - 1].id));
+    }
+    if (reply.brief) { await Brief.run(true); }
+    if (reply.letter === "start") { Letter.start(); return; }
+    if (reply.photos) await Photos.show(reply.photos);
+    if (reply.voice) {
+      const ok = await Voices.playKinds(reply.voice === "msg" ? ["msg"] : ["any", "morning", "night", "msg"]);
+      if (!ok) { const t = "아직 녹음된 목소리가 없어요. 설정에서 넣어 주세요."; say(t); await speak(t); }
+    }
+    if (reply.music === "stop") { Music.stop(); }
+    else if (reply.music && reply.music !== "none") { Music.play(reply.music); return; }
+    state = "react";
+    Ear.followUntil = Date.now() + FOLLOW_MS;
+    holdThenIdle(EMOTION_HOLD_MS);
+    Ear.kick(400);
+  }
+
+  // ---------------- 쓰다듬기 (ESP32 터치) ----------------
+  const PET_WORDS = ["헤헤, 좋아요.", "간지러워요.", "또 쓰다듬어 주세요.", "기분 좋아요."];
+  let petTimer = null;
+  function onTouch(ev) {
+    lastActive = Date.now();
+    if (state === "listen" || state === "think" || state === "speak") return;   // 대화 중엔 무시
+    if (ev.state === "down") {
+      clearTimeout(holdTimer);
+      const wasSleeping = state === "sleep";
+      state = "pet"; showHint(false); say("");
+      setMood("happy"); body("wiggle"); chirp("happy");
+      if (wasSleeping) { say("깼어요!"); speak("깼어요!"); }
+      clearTimeout(petTimer);
+      petTimer = setTimeout(() => {        // 오래 쓰다듬으면 애교
+        if (state === "pet") { setMood("love"); body("nuzzle"); chirp("love"); }
+      }, LONG_PET_MS);
+    } else if (ev.state === "up") {
+      clearTimeout(petTimer);
+      if (state !== "pet") return;
+      state = "react";
+      if (Math.random() < 0.4) {
+        const w = PET_WORDS[Math.floor(Math.random() * PET_WORDS.length)];
+        say(w); speak(w);
+      }
+      holdThenIdle(3500);
+    }
+  }
+
+  // ---------------- 음성 인식 ----------------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, finalText = "", gotError = false, emptyRuns = 0;
+
+  function showSetup(html) { const s = $("setup"); s.innerHTML = html; s.hidden = false; }
+
+  if (!SR) {
+    showSetup("<h2>음성 인식을 쓸 수 없어요</h2><p>갤럭시에서 <b>Chrome</b>으로 열어 주세요.</p>");
+  } else {
+    rec = new SR();
+    rec.lang = "ko-KR"; rec.maxAlternatives = 1;
+    rec.onresult = (e) => {
+      if (recMode === "wake") return Ear.onresult(e);
+      let interim = ""; finalText = "";
+      for (const r of e.results) { if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript; }
+      say((finalText || interim).trim(), true);
+    };
+    rec.onerror = (e) => {
+      gotError = true; lastRecError = e.error;
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        Ear.blocked = true;
+        if (recMode === "wake") return;          // 항상 듣기에서 막히면 조용히 끔 (톡 하면 안내가 나옴)
+        showSetup(
+          "<h2>마이크를 쓸 수 없어요</h2>" +
+          "<p>1. 크롬 주소창에 <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> 입력</p>" +
+          "<p>2. 칸에 <code>" + location.origin + "</code> 을 넣고 <b>Enabled</b> 선택</p>" +
+          "<p>3. 아래 <b>Relaunch</b> 로 크롬 재시작 후 다시 접속, 마이크 <b>허용</b></p>");
+      }
+    };
+    rec.onstart = () => { recRunning = true; };
+    rec.onend = () => {
+      recRunning = false;
+      const was = recMode; recMode = "";
+      if (nextMode) { const m = nextMode; nextMode = ""; return beginRec(m); }
+      if (was === "wake") return Ear.onend();
+      const text = finalText.trim(); finalText = "";
+      if (text) { emptyRuns = 0; respond(text); }
+      else if (state === "listen") {
+        // 톡 하고 말했는데 두 번 연달아 아무 글자도 안 오면 폰 음성 인식이 고장난 것 → Gemini 귀로 바꿈
+        if (!gotError && cfg.key && (cfg.earEngine || "auto") === "auto" && ++emptyRuns >= 2) {
+          emptyRuns = 0; store.set("earAutoGemini", true); GEar.init();
+          say("폰 음성 인식이 안 되는 것 같아요. 이제부터 Gemini로 들을게요. 다시 말씀해 주세요.");
+        } else say(gotError ? "" : "잘 못 들었어요. 다시 말씀해 주세요.");
+        toIdle();
+      }
+      Ear.kick(600);
+    };
+  }
+  let recMode = "", nextMode = "", recRunning = false, lastRecError = "";
+  function beginRec(mode) {
+    if (GEar.active()) return GEar.begin(mode);
+    if (!rec) return;
+    if (recRunning) { nextMode = mode; try { rec.abort(); } catch (_) {} return; }
+    recMode = mode; finalText = ""; gotError = false; lastRecError = "";
+    rec.continuous = mode === "wake"; rec.interimResults = true;
+    try { rec.start(); recRunning = true; } catch (_) { recMode = ""; }
+  }
+  function startListening() {
+    if (!rec && !GEar.active()) return;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+    AIVoice.stop();
+    clearTimeout(holdTimer);
+    state = "listen"; setMood("listen"); showHint(false); say(""); body("listen");
+    beginRec("active");
+  }
+
+  // ---------------- 부르면 대답하기 (항상 듣기) ----------------
+  // 조용히 계속 듣다가 이름("형스야")이 들리면 대답. 대답한 뒤 8초 동안은 이름 없이 이어 말해도 됨.
+  const WAKE_EXTRA = ["형스", "형쓰", "형수", "헝스", "혁스", "형스야", "형수야"];
+  const FOLLOW_MS = 8000;
+  function findWake(text) {
+    const names = [...new Set([cfg.name || "형스", ...WAKE_EXTRA])].filter(Boolean)
+      .sort((a, b) => b.length - a.length)
+      .map((n) => n.split("").map((ch) => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s?"));
+    const m = text.match(new RegExp(`(${names.join("|")})(야|아)?`));
+    if (!m) return null;
+    const rest = (text.slice(0, m.index) + " " + text.slice(m.index + m[0].length))
+      .replace(/^[\s,.!?~]+|[\s,.!?~]+$/g, "").trim();
+    return { rest };
+  }
+  var Ear = {
+    holding: false, blocked: false, followUntil: 0, retry: null, fails: 0,
+    on() { return cfg.earMode !== "off" && (GEar.active() || (!!rec && !this.blocked)); },
+    // 이름 없이 한 말에도 대답할지: 깨어 있고, 음악 중이 아니고, (얼굴 모드면) 앞에 얼굴이 보일 때
+    open() {
+      if (Letter.on || Reminders.active) return true;          // 편지 받아 적기·알림 확인은 이름 없이도 들음
+      if (state === "sleep" || Music.playing) return false;
+      if (cfg.earMode === "all") return true;
+      if (cfg.earMode === "face") return !!Vision.stream && Date.now() - Vision.lastSeen < 4000;
+      return false;
+    },
+    canListen() {
+      return this.on() && !this.holding && panel.hidden && document.visibilityState === "visible" &&
+        !Music.playing &&                                  // 듣기를 다시 켤 때마다 안드로이드가 음악을 잠깐 끊어서, 음악 중엔 쉼
+        (!!this.pending || ["idle", "sleep", "react"].includes(state));
+    },
+    kick(ms = 300) {
+      clearTimeout(this.retry);
+      this.retry = setTimeout(() => { if (!recRunning && this.canListen()) beginRec("wake"); }, ms);
+    },
+    hold(on) {
+      this.holding = on;
+      if (on) { clearTimeout(this.retry); if (recRunning && recMode === "wake") try { rec.abort(); } catch (_) {} }
+      else this.kick(500);
+    },
+    // 이름이 들리면 바로 대답하지 않고, 말이 끝날 때까지(1.3초 조용할 때까지) 이어지는 말을 모음
+    pending: null,
+    onresult(e) {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i], text = (r[0].transcript || "").trim();
+        if (!text) continue;
+        this.fails = 0;
+        if (this.pending) {
+          if (r.isFinal) { this.add(text); this.pending.interim = ""; }
+          else this.pending.interim = text;
+          this.show(); this.wait();
+          continue;
+        }
+        const meaningful = text.replace(/[^가-힣a-zA-Z0-9]/g, "").length >= 2;
+        const follow = Date.now() < this.followUntil;
+        if (!r.isFinal) {                               // 말하기 시작하면 바로 듣는 얼굴로 (반응을 빠르게)
+          if (meaningful && (this.open() || follow)) { this.begin(""); this.pending.interim = text; this.show(); this.wait(); }
+          continue;
+        }
+        const w = findWake(text);
+        if (!w && !(meaningful && (follow || this.open()))) continue;   // 듣지 않을 말은 무시
+        this.begin(w ? w.rest : text);
+      }
+    },
+    begin(first) {
+      clearTimeout(holdTimer);
+      lastActive = Date.now(); keepAwake();
+      if (state === "sleep") body("wake");
+      this.pending = { parts: first ? [first] : [], interim: "", t0: Date.now() };
+      state = "listen"; setMood("listen"); showHint(false); body("listen");
+      this.show(); this.wait();
+    },
+    // 갤럭시 크롬은 같은 말을 점점 길게 여러 번 보내므로("다른", "다른 음악을", …) 겹치면 긴 쪽만 남김
+    add(text) {
+      const p = this.pending, n = (x) => x.replace(/[^가-힣a-zA-Z0-9]/g, "");
+      const last = p.parts.at(-1), t = n(text);
+      if (last !== undefined && t.includes(n(last))) p.parts[p.parts.length - 1] = text;
+      else if (last !== undefined && n(last).includes(t)) { /* 이미 들은 말 */ }
+      else if (p.parts.some((x) => n(x).includes(t))) { /* 앞에서 들은 말 */ }
+      else p.parts.push(text);
+    },
+    joined() {
+      const p = this.pending; if (!p) return "";
+      const n = (x) => x.replace(/[^가-힣a-zA-Z0-9]/g, ""), last = p.parts.at(-1) || "";
+      const it = p.interim && !n(last).includes(n(p.interim)) ? (n(p.interim).includes(n(last)) && last ? null : p.interim) : "";
+      const parts = it === null ? [...p.parts.slice(0, -1), p.interim] : [...p.parts, it];
+      return parts.join(" ").replace(/\s+/g, " ").trim();
+    },
+    show() { if (this.pending) say(this.joined(), true); },
+    wait() {
+      clearTimeout(this.doneTimer);
+      const p = this.pending; if (!p) return;
+      const has = this.joined().replace(/[^가-힣a-zA-Z0-9]/g, "").length >= 2;
+      // 문장이 끝나면(최종 결과) 0.9초, 아직 말하는 중이면 1.2초, 이름만 불렀으면 2초 기다림
+      this.doneTimer = setTimeout(() => this.finish(), !has ? 2000 : p.interim ? 1200 : 900);
+    },
+    finish() {
+      clearTimeout(this.doneTimer);
+      const p = this.pending; if (!p) return;
+      const said = this.joined();
+      this.pending = null;
+      try { rec.abort(); } catch (_) {}
+      if (Music.playing && !/노래|음악|틀어|들려|꺼|그만|멈/.test(said)) Music.stop();
+      const w = findWake(said), q = w ? w.rest : said;
+      if (q.replace(/[^가-힣a-zA-Z0-9]/g, "").length >= 2) { respond(q); return; }
+      // 이름만 불렀을 때: "네?" 하고 다음 말 듣기
+      state = "react"; setMood("happy"); say("네?"); chirp("happy");
+      speak("네?").then(() => startListening());
+    },
+    onend() {
+      if (this.pending) { beginRec("wake"); return; }   // 말하는 중에 끊기면 바로 이어 듣기
+      if (lastRecError === "network" || lastRecError === "audio-capture") this.fails++;
+      this.kick(this.fails ? Math.min(30000, 2000 * this.fails) : 250);
+    },
+  };
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Ear.kick(); });
+  setInterval(() => Ear.kick(0), 5000);                // 무슨 일로 멈춰도 5초 안에 다시 듣기
+
+  // ---------------- Gemini 귀 (폰의 구글 음성 인식이 안 될 때) ----------------
+  // 마이크 소리를 직접 받아 말소리 구간만 잘라(앞 0.4초 포함) Gemini에 보내 글자로 바꿈.
+  // 대답하는 동안·음악 중·설정 화면에서는 듣지 않음. 폰 음성 설정과 상관없이 동작.
+  const STT_MODEL = "gemini-flash-lite-latest";
+  const STT_PROMPT = '녹음을 듣고 JSON 하나로만 답해: {"speech": true 또는 false, "text": "받아 적은 말"}. ' +
+    '사람이 녹음기 가까이에서 또렷하게 말한 한국어 문장이 있을 때만 speech를 true로 하고, 들린 말을 그대로 text에 적어. ' +
+    '말소리가 없거나 알아들을 수 없으면 speech는 false, text는 빈 문자열. 들리지 않은 말을 지어내지 마.';
+  const GEar = {
+    mode: "", ctx: null, stream: null, node: null, ready: false, starting: false, err: "",
+    rate: 48000, floor: 0.002, level: 0, pre: [], buf: [], voiced: 0, silent: 0, speaking: false,
+    busy: false, activeTimer: null, calls: [],
+    active() {
+      const eng = cfg.earEngine || "auto";
+      return !!cfg.key && (eng === "gemini" || (eng === "auto" && (!SR || store.get("earAutoGemini", false))));
+    },
+    thr() { return Math.max(0.006, this.floor * 3.5); },
+    async init() {
+      if (this.ready || this.starting) return this.ready;
+      this.starting = true;
+      try {
+        // 에코 제거 등을 켜면 안드로이드가 '통화 모드'로 바뀌어 음악·목소리가 작아지므로 끔 (대답 중엔 어차피 안 들음)
+        if (!navigator.mediaDevices) throw new Error("크롬 플래그(insecure origin)에 이 주소를 넣어야 해요");
+        const call = cfg.micMode === "call";      // 통화용: 안드로이드가 통화처럼 위·아래 마이크를 함께 씀
+        const want = { echoCancellation: call, noiseSuppression: call, autoGainControl: call };
+        if (cfg.micId) want.deviceId = { exact: cfg.micId };
+        try { this.stream = await navigator.mediaDevices.getUserMedia({ audio: want }); }
+        catch (e) {                                // 고른 마이크가 없어졌으면 기본 마이크로
+          if (!cfg.micId) throw e;
+          delete want.deviceId; this.stream = await navigator.mediaDevices.getUserMedia({ audio: want });
+        }
+        const AC = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AC(); this.rate = this.ctx.sampleRate;
+        const src = this.ctx.createMediaStreamSource(this.stream);
+        this.node = this.ctx.createScriptProcessor(4096, 1, 1);
+        const mute = this.ctx.createGain(); mute.gain.value = 0;
+        src.connect(this.node); this.node.connect(mute); mute.connect(this.ctx.destination);
+        this.node.onaudioprocess = (e) => this.onAudio(e.inputBuffer.getChannelData(0));
+        if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+        this.ready = true; this.err = "";
+      } catch (e) {
+        this.err = e && e.name === "NotAllowedError" ? "마이크 권한이 없어요" : (e && e.message) || String(e);
+      } finally { this.starting = false; }
+      return this.ready;
+    },
+    // 지금 들은 소리를 받아들일지
+    listening() {
+      if (this.busy) return false;
+      if (this.mode === "active") return state === "listen";
+      return this.mode === "wake" && Ear.canListen() && cfg.earMode !== "off";
+    },
+    onAudio(x) {
+      let s = 0; for (let i = 0; i < x.length; i++) s += x[i] * x[i];
+      const rms = Math.sqrt(s / x.length), sec = x.length / this.rate, thr = this.thr();
+      this.level = rms;
+      if (!this.speaking) {
+        if (!this.listening()) { this.pre = []; this.voiced = 0; return; }
+        this.pre.push(new Float32Array(x)); if (this.pre.length > 5) this.pre.shift();
+        if (rms > thr) { if (++this.voiced >= 3) this.startUtter(); }   // 약 0.25초 이상 이어지는 소리만
+        else { this.voiced = 0; this.floor = this.floor * 0.97 + Math.min(rms, 0.03) * 0.03; }
+        return;
+      }
+      this.buf.push(new Float32Array(x));
+      if (rms > thr * 0.7) this.silent = 0; else this.silent += sec;
+      const dur = this.buf.length * sec;
+      if (this.silent >= (this.mode === "active" ? 1.0 : 0.75) || dur > 15) this.endUtter();
+    },
+    startUtter() {
+      this.speaking = true; this.buf = this.pre; this.pre = []; this.silent = 0; this.voiced = 0;
+      lastActive = Date.now();
+      if (this.mode === "wake" && (Ear.open() || Date.now() < Ear.followUntil) && state !== "sleep") { setMood("listen"); showHint(false); }
+    },
+    endUtter() {
+      if (!this.speaking) return;
+      this.speaking = false;
+      const chunks = this.buf, sec = chunks.length ? chunks[0].length / this.rate : 0;
+      this.buf = [];
+      const talk = chunks.length * sec - this.silent;
+      const mode = this.mode;
+      this.calls = this.calls.filter((t) => Date.now() - t < 60000);
+      if (talk < 0.5 || (mode === "wake" && this.calls.length >= 12)) {   // 너무 짧은 소리, 또는 1분에 12번 넘게 보내려 할 때(TV 소리 등)는 버림
+        this.restore();
+        if (mode === "active") this.begin("active");
+        return;
+      }
+      this.transcribe(chunks, mode);
+    },
+    restore() { if (state === "idle") { setMood("idle"); showHint(true); } },
+    async transcribe(chunks, mode) {
+      if (cfg.model.startsWith("gemini") && !Letter.on && !Reminders.active) return this.oneShot(chunks, mode);
+      this.busy = true;
+      if (mode === "active") say("…", true);
+      let text = "";
+      try { text = await this.stt(this.wav(chunks)); }
+      catch (e) { this.err = e.name === "AbortError" ? "Gemini 응답이 늦어요" : e.message; }
+      finally { this.busy = false; }
+      text = text.replace(/["'“”‘’「」]/g, "").replace(/[\[(（][^\])）]*[\])）]/g, "").replace(/\s+/g, " ").trim();
+      if (/^(없음|무음|침묵|\.+|-+)$/.test(text)) text = "";
+      this.handle(text, mode);
+    },
+    // 녹음 → Gemini 한 번에 "들은 말 + 대답" (요청 수 절반, 더 빠름)
+    async oneShot(chunks, mode) {
+      this.busy = true;
+      const show = mode === "active" || (state !== "sleep" && (Ear.open() || Date.now() < Ear.followUntil));
+      if (show) { setMood("think"); say("…", true); }
+      let reply;
+      try { reply = await ask("", "", this.wav(chunks)); }
+      catch (e) { reply = { skip: true, why: e.message }; }
+      finally { this.busy = false; }
+      const heard = String(reply.heard || "").replace(/\s+/g, " ").trim();
+      this.err = reply.why || "";
+      if (reply.fail && show) {                              // 인터넷·서버 문제: 이유를 보여 줌
+        if (mode === "active") { this.mode = "wake"; clearTimeout(this.activeTimer); }
+        lastUserText = ""; return respondWith(reply);
+      }
+      const meaningful = heard.replace(/[^가-힣a-zA-Z0-9]/g, "").length >= 2;
+      const deliver = (said) => {
+        clearTimeout(holdTimer); lastActive = Date.now(); keepAwake();
+        if (state === "sleep") body("wake");
+        saveTurn(said, reply);
+        lastUserText = said; say(said, true);
+        respondWith(reply);
+      };
+      if (mode === "active") {
+        this.mode = "wake"; clearTimeout(this.activeTimer);
+        if (state !== "listen") return;
+        if (meaningful && !reply.skip) return deliver(heard);
+        say(this.err ? `잘 못 들었어요. (${this.err})` : "잘 못 들었어요. 다시 말씀해 주세요."); toIdle();
+        return;
+      }
+      if (!["idle", "sleep", "react"].includes(state) || !panel.hidden) { if (show && caption.textContent === "…") say(""); return; }
+      const w = findWake(heard), follow = Date.now() < Ear.followUntil;
+      if (w && w.rest.replace(/[^가-힣a-zA-Z0-9]/g, "").length < 2) {   // 이름만 불렀을 때
+        clearTimeout(holdTimer); if (state === "sleep") body("wake");
+        state = "react"; setMood("happy"); say("네?"); chirp("happy");
+        speak("네?").then(() => startListening());
+        return;
+      }
+      if (!reply.skip && meaningful && (w || follow || Ear.open())) return deliver(heard);
+      if (show) say(reply.why ? `못 알아들었어요. (${reply.why})` : "");   // 대답할 말이 없었음 → "…" 지우고 원래 얼굴로 (문제가 있었으면 이유 표시)
+      this.restore();
+      if (state === "react") setMood("idle");
+    },
+    handle(text, mode) {
+      const meaningful = text.replace(/[^가-힣a-zA-Z0-9]/g, "").length >= 2;
+      if (mode === "active") {
+        this.mode = "wake"; clearTimeout(this.activeTimer);
+        if (state !== "listen") return;
+        if (meaningful) { const w = findWake(text); respond(w && w.rest.replace(/[^가-힣a-zA-Z0-9]/g, "").length >= 2 ? w.rest : text); }
+        else { say(this.err ? `잘 못 들었어요. (${this.err})` : "잘 못 들었어요. 다시 말씀해 주세요."); toIdle(); }
+        return;
+      }
+      if (!["idle", "sleep", "react"].includes(state) || !panel.hidden) return;
+      const w = findWake(text), follow = Date.now() < Ear.followUntil;
+      if (!w && !(meaningful && (follow || Ear.open()))) { this.restore(); return; }   // 대답하지 않을 말
+      clearTimeout(holdTimer); lastActive = Date.now(); keepAwake();
+      if (state === "sleep") body("wake");
+      const q = w ? w.rest : text;
+      if (q.replace(/[^가-힣a-zA-Z0-9]/g, "").length >= 2) { respond(q); return; }
+      state = "react"; setMood("happy"); say("네?"); chirp("happy");          // 이름만 불렀을 때
+      speak("네?").then(() => startListening());
+    },
+    // 16kHz 모노 WAV(base64)로 바꿈. 소리가 작으면 키워서 보냄
+    wav(chunks) {
+      const n = chunks.reduce((a, c) => a + c.length, 0), all = new Float32Array(n);
+      let o = 0, peak = 0;
+      for (const c of chunks) { all.set(c, o); o += c.length; }
+      for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(all[i]));
+      const gain = peak > 0 ? Math.min(8, 0.9 / peak) : 1;
+      const ratio = this.rate / 16000, m = Math.floor(n / ratio), pcm = new Int16Array(m);
+      for (let i = 0; i < m; i++) {
+        const a = Math.floor(i * ratio), b = Math.max(a + 1, Math.min(n, Math.floor((i + 1) * ratio)));
+        let s = 0; for (let j = a; j < b; j++) s += all[j];
+        const v = Math.max(-1, Math.min(1, (s / (b - a)) * gain));
+        pcm[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+      }
+      const buf = new ArrayBuffer(44 + m * 2), dv = new DataView(buf);
+      const w = (p, str) => { for (let i = 0; i < str.length; i++) dv.setUint8(p + i, str.charCodeAt(i)); };
+      w(0, "RIFF"); dv.setUint32(4, 36 + m * 2, true); w(8, "WAVE"); w(12, "fmt ");
+      dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+      dv.setUint32(24, 16000, true); dv.setUint32(28, 32000, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+      w(36, "data"); dv.setUint32(40, m * 2, true);
+      new Int16Array(buf, 44).set(pcm);
+      const u = new Uint8Array(buf); let bin = "";
+      for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+      return btoa(bin);
+    },
+    async stt(b64) {
+      this.calls.push(Date.now());
+      const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 10000);
+      try {
+        for (const model of [STT_MODEL, cfg.model]) {
+          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cfg.key)}`, {
+            method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal,
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ inline_data: { mime_type: "audio/wav", data: b64 } }, { text: STT_PROMPT }] }],
+              generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: "application/json" },
+            }),
+          });
+          if (r.status === 404 && model === STT_MODEL) continue;      // 모델 이름이 바뀌었으면 대화 모델로
+          if (!r.ok) { this.err = r.status === 429 ? "Gemini 사용량 초과, 잠시 뒤에" : [400, 401, 403].includes(r.status) ? `API 키 확인 필요 (HTTP ${r.status})` : `HTTP ${r.status}`; return ""; }
+          const d = await r.json();
+          this.err = "";
+          const raw = (((d.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text || "").join("").trim() || "";
+          try { const j = JSON.parse((raw.match(/\{[\s\S]*\}/) || [raw])[0]); return j.speech ? String(j.text || "").trim() : ""; }
+          catch (_) { return /[{}"]/.test(raw) ? "" : raw; }
+        }
+        return "";
+      } finally { clearTimeout(t); }
+    },
+    // beginRec 대신 불림. wake = 항상 듣기, active = 톡 친 뒤 듣기
+    begin(mode) {
+      if (!this.ready) {
+        this.init().then((ok) => {
+          if (ok) this.begin(mode);
+          else if (mode === "active") { say(`마이크를 쓸 수 없어요. ${this.err}`); toIdle(); }
+        });
+        return;
+      }
+      if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+      if (mode !== "active") { if (this.mode !== "active") this.mode = "wake"; return; }
+      this.mode = "active";
+      clearTimeout(this.activeTimer);
+      this.activeTimer = setTimeout(() => {            // 톡 친 뒤 7초 동안 말이 없으면 끝
+        if (this.mode === "active" && !this.speaking && !this.busy && state === "listen") {
+          this.mode = "wake"; say("잘 못 들었어요. 다시 말씀해 주세요."); toIdle();
+        }
+      }, 7000);
+    },
+    cut() { if (this.speaking) this.endUtter(); },
+    // 마이크를 바꿨을 때 다시 열기
+    async restart() {
+      try { this.stream && this.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+      try { this.ctx && this.ctx.close(); } catch (_) {}
+      this.stream = this.ctx = this.node = null; this.ready = false; this.speaking = false; this.pre = []; this.buf = [];
+      this.floor = 0.002; this.level = 0;
+      const mode = this.mode; this.mode = "";
+      const ok = await this.init();
+      if (ok) this.mode = mode === "active" ? "wake" : mode;
+      return ok;
+    },
+    async mics() {
+      try { return (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audioinput"); }
+      catch (_) { return []; }
+    },
+  };
+  document.addEventListener("pointerdown", () => { if (GEar.ctx && GEar.ctx.state === "suspended") GEar.ctx.resume().catch(() => {}); }, { passive: true });
+  // 새로고침 직후엔 크롬이 소리 처리를 멈춰 두므로(한 번 터치해야 풀림) 그동안 안내
+  setInterval(() => {
+    if (!GEar.active() || state !== "idle") return;
+    const asleep = !GEar.ready || (GEar.ctx && GEar.ctx.state === "suspended");
+    if (asleep) hint.textContent = GEar.err ? `마이크 문제: ${GEar.err}` : "화면을 한 번 톡 쳐 주세요 (귀 켜기)";
+    else if (/귀 켜기|마이크 문제/.test(hint.textContent)) setHint();
+  }, 1500);
+
+  // ---------------- 전체화면 · 화면 꺼짐 방지 ----------------
+  let wakeLock = null;
+  async function keepAwake() {
+    try { if ("wakeLock" in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => (wakeLock = null)); } } catch (_) {}
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") keepAwake(); });
+  function goFullscreen() {
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  }
+
+  // ---------------- 음악 ----------------
+  // 분위기별로 아내분이 넣어 둔 노래 파일(폰 안 IndexedDB)을 틀고, 없으면 형스가 직접 연주(Web Audio)
+  const MUSIC_MOODS = {
+    calm:    { label: "잔잔한 음악",       bpm: 70, key: 60, beats: 4, perChord: 8, chords: [[0, 4, 7, 11], [9, 12, 16, 19], [5, 9, 12, 16], [7, 11, 14, 17]], arp: 0.5, mel: 0.22, drums: false, box: false, min: 10 },
+    bright:  { label: "신나는 음악",       bpm: 108, key: 67, beats: 4, perChord: 4, chords: [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]], arp: 1, mel: 0.45, drums: true, box: false, min: 10 },
+    comfort: { label: "마음을 달래는 음악", bpm: 60, key: 65, beats: 4, perChord: 8, chords: [[5, 9, 12, 16], [0, 4, 7, 11], [9, 12, 16], [7, 11, 14, 17]], arp: 0.5, mel: 0.25, drums: false, box: false, min: 10 },
+    sleep:   { label: "자장가",           bpm: 54, key: 62, beats: 3, perChord: 6, chords: [[0, 4, 7], [5, 9, 12], [0, 4, 7], [7, 11, 14]], arp: 0, mel: 0.5, drums: false, box: true, min: 20 },
+    morning: { label: "상쾌한 아침 음악",   bpm: 94, key: 69, beats: 4, perChord: 4, chords: [[0, 4, 7], [4, 7, 11], [5, 9, 12], [7, 11, 14]], arp: 1, mel: 0.35, drums: false, box: false, min: 10 },
+  };
+  const PENTA = [0, 2, 4, 7, 9];
+
+  // 노래 파일 보관 (이 폰 크롬 안)
+  const MusicDB = {
+    open() {
+      return new Promise((ok, no) => {
+        try {
+          const r = indexedDB.open("hyungs-music", 1);
+          r.onupgradeneeded = () => r.result.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
+          r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error);
+        } catch (e) { no(e); }
+      });
+    },
+    async tx(mode, fn) {
+      const db = await this.open();
+      return new Promise((ok, no) => {
+        const t = db.transaction("tracks", mode), st = t.objectStore("tracks");
+        const res = fn(st);
+        t.oncomplete = () => ok(res && res.result !== undefined ? res.result : res);
+        t.onerror = () => no(t.error);
+      });
+    },
+    add(mood, file) { return this.tx("readwrite", (s) => s.add({ mood, name: file.name, blob: file })); },
+    all() { return this.tx("readonly", (s) => s.getAll()); },
+    async byMood(mood) { try { return (await this.all()).filter((t) => t.mood === mood); } catch (_) { return []; } },
+    async clear(mood) {
+      const ids = (await this.byMood(mood)).map((t) => t.id);
+      return this.tx("readwrite", (s) => ids.forEach((id) => s.delete(id)));
+    },
+  };
+
+  // ---------------- 사진 보기 ("주형이 사진 보여줘") ----------------
+  // 사진은 이 폰 크롬 안(IndexedDB)에만 저장. 넣을 때 긴 쪽 1600px로 줄여 공간을 아낌.
+  const Photos = {
+    albums: [], showing: false, list: [], i: 0, timer: null, done: null, url: null,
+    db() {
+      return new Promise((ok, no) => {
+        try {
+          const r = indexedDB.open("hyungs-photos", 1);
+          r.onupgradeneeded = () => r.result.createObjectStore("photos", { keyPath: "id", autoIncrement: true });
+          r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error);
+        } catch (e) { no(e); }
+      });
+    },
+    async tx(mode, fn) {
+      const db = await this.db();
+      return new Promise((ok, no) => {
+        const t = db.transaction("photos", mode), st = t.objectStore("photos");
+        const res = fn(st);
+        t.oncomplete = () => ok(res && res.result !== undefined ? res.result : res);
+        t.onerror = () => no(t.error);
+      });
+    },
+    async all() { try { return await this.tx("readonly", (st) => st.getAll()); } catch (_) { return []; } },
+    async refresh() {
+      const c = {};
+      (await this.all()).forEach((p) => (c[p.album] = (c[p.album] || 0) + 1));
+      this.albums = Object.entries(c).map(([name, n]) => ({ name, n }));
+      return this.albums;
+    },
+    prompt() {
+      return this.albums.length
+        ? `[사진]\n이 폰에 저장된 사진 앨범: ${this.albums.map((a) => `${a.name}(${a.n}장)`).join(", ")}. 보여 달라고 하면 photos에 앨범 이름을 넣어.`
+        : "[사진]\n아직 저장된 사진이 없어.";
+    },
+    async shrink(file) {
+      try {
+        const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+        const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+        const cv = document.createElement("canvas");
+        cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+        cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+        return await new Promise((ok) => cv.toBlob((b) => ok(b || file), "image/jpeg", 0.85));
+      } catch (_) { return file; }
+    },
+    async addOne(album, f, note = "") {
+      const blob = await this.shrink(f);
+      const id = await this.tx("readwrite", (st) => st.add({ album, name: f.name, blob, note, t: Date.now() }));
+      await this.refresh();
+      return id;
+    },
+    async add(album, files) {
+      for (const f of files) await this.addOne(album, f);
+      return this.refresh();
+    },
+    async showIds(ids) { const all = await this.all(); return this.play(all.filter((p) => ids.includes(p.id))); },
+    async clear(album) {
+      const ids = (await this.all()).filter((p) => p.album === album).map((p) => p.id);
+      await this.tx("readwrite", (st) => ids.forEach((id) => st.delete(id)));
+      return this.refresh();
+    },
+    // 앨범에서 최대 10장을 섞어 한 장에 6초씩 보여 줌
+    async show(album) {
+      const all = await this.all();
+      let pick = all.filter((p) => p.album === album);
+      if (!pick.length) {                                   // 이름이 조금 달라도 찾기 ("주형이" → "주형")
+        const k = String(album || "").replace(/[^가-힣a-zA-Z0-9]/g, "");
+        pick = all.filter((p) => k && (k.includes(p.album) || p.album.includes(k)));
+      }
+      if (!pick.length) pick = all;
+      if (!pick.length) { const t = "아직 사진이 없어요. 설정에서 사진을 넣어 주세요."; say(t); await speak(t); return; }
+      return this.play(pick.sort(() => Math.random() - 0.5).slice(0, 10));
+    },
+    play(list) {
+      if (!list.length) return;
+      this.list = list; this.i = -1; this.showing = true;
+      state = "photo"; showHint(false); body("nod");
+      $("photo").classList.add("on");
+      return new Promise((ok) => { this.done = ok; this.next(); });
+    },
+    next() {
+      clearTimeout(this.timer); lastActive = Date.now();
+      this.i++;
+      if (this.i >= this.list.length) return this.close();
+      const img = $("photo").querySelector("img");
+      img.classList.remove("in");
+      setTimeout(() => {
+        if (this.url) URL.revokeObjectURL(this.url);
+        this.url = URL.createObjectURL(this.list[this.i].blob);
+        img.onload = () => img.classList.add("in");
+        img.src = this.url;
+        const note = this.list[this.i].note;
+        $("photo").querySelector(".count").textContent = `${this.i + 1} / ${this.list.length}` + (note ? ` · ${note}` : "");
+      }, 250);
+      this.timer = setTimeout(() => this.next(), 6000);
+    },
+    close() {
+      clearTimeout(this.timer);
+      this.showing = false;
+      $("photo").classList.remove("on");
+      const img = $("photo").querySelector("img"); img.classList.remove("in"); img.removeAttribute("src");
+      if (this.url) { URL.revokeObjectURL(this.url); this.url = null; }
+      if (state === "photo") state = "react";
+      lastActive = Date.now();
+      const d = this.done; this.done = null; if (d) d();
+    },
+  };
+  Photos.refresh();
+
+  // ================= 알림·약 챙기기 =================
+  // 말로 "3시에 약 먹으라고 알려줘", "매일 아침 9시에 혈압약" → 시간이 되면 카드와 목소리로 알림.
+  // 확인할 때까지 5분마다 다시 알려 주고(3번), 그래도 확인 안 하면 (설정하면) 가족에게 알림.
+  const ACK_RE = /알았|알겠|먹었|했어|했어요|확인|그래|응|네|오케이|끝났/;
+  const Reminders = {
+    active: null, timer: null, waitSince: 0,
+    list() { return store.get("reminders", []); },
+    save(l) { store.set("reminders", l); },
+    hm(ms) { const d = new Date(ms); return `${d.getHours()}시` + (d.getMinutes() ? ` ${d.getMinutes()}분` : ""); },
+    dayWord(ms) {
+      const d = new Date(ms), t = new Date(); t.setHours(0, 0, 0, 0);
+      const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - t) / 864e5);
+      return diff === 0 ? "오늘" : diff === 1 ? "내일" : diff === 2 ? "모레" : `${d.getMonth() + 1}월 ${d.getDate()}일`;
+    },
+    // r: { text, time: "HH:MM", date: "YYYY-MM-DD"|"", daily: bool }
+    add(r) {
+      const m = /^(\d{1,2}):(\d{2})$/.exec(String(r.time || "").trim());
+      if (!m || !String(r.text || "").trim()) return null;
+      const now = new Date();
+      let at;
+      const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(r.date || ""));
+      if (dm && !r.daily) at = new Date(+dm[1], +dm[2] - 1, +dm[3], +m[1], +m[2]);
+      else { at = new Date(); at.setHours(+m[1], +m[2], 0, 0); if (at <= now) at.setDate(at.getDate() + 1); }
+      if (at <= now) return null;
+      const item = { id: Date.now(), text: String(r.text).trim().slice(0, 60), daily: !!r.daily, hh: +m[1], mm: +m[2], next: at.getTime() };
+      const l = this.list(); l.push(item); l.sort((a, b) => a.next - b.next); this.save(l);
+      return item;
+    },
+    remove(id) { this.save(this.list().filter((x) => x.id !== id)); },
+    describe(x) { return `${x.daily ? "매일" : this.dayWord(x.next)} ${this.hm(x.next)} ${x.text}`; },
+    prompt() {
+      const l = this.list();
+      return "[알림]\n" + (l.length ? "지금 맞춰 둔 알림:\n" + l.map((x, i) => `${i + 1}. ${this.describe(x)}`).join("\n")
+        : "지금 맞춰 둔 알림이 없어.");
+    },
+    today() {
+      const end = new Date(); end.setHours(23, 59, 59, 999);
+      return this.list().filter((x) => x.next <= end.getTime());
+    },
+    tick() {
+      if (this.active) return;
+      const now = Date.now(), l = this.list();
+      const due = l.find((x) => x.next <= now);
+      if (!due) return;
+      if (now - due.next > 3 * 3600 * 1000) { this.done(due, true); return; }     // 3시간 넘게 지난 건 건너뜀 (폰이 꺼져 있었던 경우)
+      const busy = ["listen", "think", "speak", "photo", "voice"].includes(state) || !panel.hidden || Letter.on;
+      if (busy) { if (!this.waitSince) this.waitSince = now; if (now - this.waitSince < 5 * 60 * 1000) return; }
+      this.waitSince = 0;
+      this.fire(due);
+    },
+    fire(item) {
+      this.active = { item, count: 0 };
+      Frame.hide(); Music.playing && Music.stop();
+      $("alert-text").textContent = item.text;
+      $("alert-time").textContent = `${this.hm(item.next)} 알림`;
+      $("alert").hidden = false;
+      this.ring();
+    },
+    async ring() {
+      const a = this.active; if (!a) return;
+      a.count++;
+      clearTimeout(holdTimer);
+      if (state === "sleep") body("wake");
+      state = "react"; setMood("happy"); showHint(false); body("nod"); chirp("happy");
+      const t = a.count === 1 ? `${this.hm(a.item.next)}이에요. ${a.item.text} 시간이에요.` : `다시 알려 드려요. ${a.item.text} 시간이에요. 하셨으면 알았다고 말씀해 주세요.`;
+      say(t); await speak(t);
+      if (!this.active) return;
+      state = "idle"; setMood("idle"); Ear.kick(300);                // 알림 중에도 "알았어"를 들을 수 있게
+      clearTimeout(this.timer);
+      if (a.count < 3) this.timer = setTimeout(() => this.ring(), 5 * 60 * 1000);
+      else if (cfg.remindFamily && cfg.ntfyTopic) {
+        this.timer = setTimeout(() => {
+          if (this.active === a) Family.send(`'${a.item.text}' 알림(${this.hm(a.item.next)})을 15분 동안 확인하지 않으셨어요.`, false);
+        }, 5 * 60 * 1000);
+      }
+    },
+    async ack(spoken) {
+      const a = this.active; if (!a) return false;
+      clearTimeout(this.timer); this.active = null;
+      $("alert").hidden = true;
+      this.done(a.item, false);
+      const t = "네, 확인했어요. 잘하셨어요!";
+      state = "react"; setMood("happy"); body("nod"); say(t); await speak(t);
+      holdThenIdle(2500);
+      return true;
+    },
+    done(item, skipped) {
+      const l = this.list(), x = l.find((y) => y.id === item.id);
+      if (!x) return;
+      if (x.daily) { const d = new Date(x.next); do { d.setDate(d.getDate() + 1); } while (d.getTime() <= Date.now()); x.next = d.getTime(); this.save(l.sort((a, b) => a.next - b.next)); }
+      else this.save(l.filter((y) => y.id !== x.id));
+    },
+  };
+  setInterval(() => Reminders.tick(), 15000);
+
+  // ================= 아침 브리핑 =================
+  // 하루 첫 아침 인사 뒤에 날씨·미세먼지, 아들 날짜, 오늘 알림, 뉴스 세 줄을 이어서 말해 줌.
+  const Brief = {
+    doneToday() { return store.get("briefDay", "") === new Date().toDateString(); },
+    async run(manual) {
+      if (!manual) store.set("briefDay", new Date().toDateString());
+      state = "think"; setMood("think"); showHint(false);
+      const [w, n] = await Promise.all([
+        Search.weather().catch(() => null),
+        (cfg.briefNews !== false ? Search.news("").catch(() => null) : Promise.resolve(null)),
+      ]);
+      const lines = [];
+      if (w && w.ok) lines.push(w.plain);
+      const dc = DayCount.get(); if (dc) lines.push(dc.short);
+      const today = Reminders.today();
+      if (today.length) lines.push(`오늘 알림은 ${today.slice(0, 4).map((x) => `${Reminders.hm(x.next)} ${x.text}`).join(", ")}이 있어요.`);
+      if (n && n.ok) {
+        const heads = (n.lines || n.context.split("\n").map((l) => l.replace(/^\d+\.\s*/, ""))).slice(0, 3)
+          .map((l) => l.replace(/\s[-–]\s[^-–]+$/, "").replace(/\s*\(\d+\/\d+\)\s*$/, "").trim());
+        if (heads.length) lines.push("오늘의 뉴스예요. " + heads.map((h, i) => `${["첫째", "둘째", "셋째"][i]}, ${h}.`).join(" "));
+      }
+      if (!lines.length) lines.push("오늘 소식을 가져오지 못했어요. 인터넷 연결을 확인해 주세요.");
+      lines.push("오늘도 좋은 하루 보내세요!");
+      state = "speak"; setMood("happy");
+      for (const l of lines) { say(l); await speak(l); }
+      lastActive = Date.now();
+    },
+  };
+
+  // ================= 아들에게 편지 쓰기 =================
+  // "주형이에게 편지 쓸래" → 말하는 대로 받아 적고, "다 썼어" 하면 맞춤법만 다듬어 보여 줌.
+  // 복사해서 공군 인터넷 편지·카톡에 붙여 넣거나, 사진 받는 주소(ntfy)로 아들 폰에 바로 보낼 수 있음.
+  const Letter = {
+    on: false, parts: [], text: "",
+    who() { return Inbox.who(); },
+    start() {
+      this.on = true; this.parts = []; this.text = "";
+      Frame.hide();
+      $("letter-title").textContent = `${cfg.sonName || "아들"}에게 쓰는 편지`;
+      $("letter-body").value = ""; $("letter-body").readOnly = true;
+      $("letter-guide").textContent = "말씀하시면 받아 적어요. 다 쓰셨으면 \"다 썼어\", 마지막 문장을 지우려면 \"방금 거 지워\", 그만두려면 \"취소\"라고 하세요.";
+      $("letter-write").hidden = false; $("letter-done").hidden = true;
+      $("letter").hidden = false;
+      state = "idle"; setMood("listen"); Ear.followUntil = Date.now() + 10 * 60 * 1000; Ear.kick(300);
+    },
+    show() { $("letter-body").value = this.parts.join(" "); $("letter-body").scrollTop = 1e9; },
+    // 편지 쓰는 중에 들은 말 처리. 처리했으면 true
+    async hear(t) {
+      const s = t.replace(/\s/g, "");
+      if (/^(다썼어|다썼다|다됐어|끝|끝났어|그만쓸래|편지끝)/.test(s) || /다썼어|다됐어$/.test(s)) { await this.finish(); return true; }
+      if (/^(취소|편지취소|안쓸래|그만둘래)/.test(s)) { this.close(); const m = "편지 쓰기를 그만둘게요."; say(m); await speak(m); toIdle(); return true; }
+      if (/(방금거|마지막거|방금말)지워/.test(s)) { this.parts.pop(); this.show(); chirp("happy"); Ear.kick(300); return true; }
+      this.parts.push(t.trim()); this.show(); chirp("happy");
+      Ear.followUntil = Date.now() + 10 * 60 * 1000;
+      state = "idle"; setMood("listen"); Ear.kick(300);
+      return true;
+    },
+    async finish() {
+      const raw = this.parts.join(" ").trim();
+      if (!raw) { const m = "아직 받아 적은 내용이 없어요. 하고 싶은 말을 해 주세요."; say(m); await speak(m); state = "idle"; setMood("listen"); Ear.kick(300); return; }
+      this.on = false;
+      state = "think"; setMood("think"); say("편지를 다듬고 있어요…", true);
+      const d = new Date(), date = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+      const sign = cfg.letterSign || "엄마";
+      const prompt = `다음은 ${sign}가 말로 불러 준, 군대에 있는 아들 ${cfg.sonName || ""}에게 보내는 편지를 받아 적은 거야.\n` +
+        "말투와 내용은 그대로 살리고, 받아 적기 실수·맞춤법·띄어쓰기·문장부호만 고쳐서 읽기 좋게 문단을 나눠 줘. 없는 내용을 지어내거나 늘리지 마.\n" +
+        `첫 줄은 '사랑하는 ${this.who()}에게', 마지막 줄은 '${date} ${sign}가'로 해. 편지 글만 출력해.\n\n[받아 적은 말]\n${raw}`;
+      let out = "";
+      for (const model of [STT_MODEL, "gemini-flash-latest"]) {
+        if (!cfg.key) break;
+        try {
+          const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 25000);
+          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cfg.key)}`, {
+            method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal,
+            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3 } }),
+          }).finally(() => clearTimeout(t));
+          if (!r.ok) continue;
+          out = (((await r.json()).candidates || [])[0]?.content?.parts || []).map((x) => x.text || "").join("").replace(/\*\*/g, "").trim();
+          if (out) break;
+        } catch (_) {}
+      }
+      if (!out) out = `사랑하는 ${this.who()}에게\n\n${raw}\n\n${date} ${sign}가`;   // 다듬기에 실패해도 받아 적은 그대로
+      this.text = out;
+      $("letter-body").value = out; $("letter-body").readOnly = false;
+      $("letter-guide").textContent = "편지를 다듬었어요. 화면에서 직접 고칠 수도 있어요.";
+      $("letter-write").hidden = true; $("letter-done").hidden = false;
+      $("letter-send").hidden = !cfg.photoTopic;
+      const ls = store.get("letters", []); ls.unshift({ t: Date.now(), text: out }); store.set("letters", ls.slice(0, 30));
+      state = "react"; setMood("love");
+      const m = cfg.photoTopic ? `편지를 다 정리했어요. 화면을 확인하시고 복사하거나 ${this.who()}에게 바로 보내세요.` : "편지를 다 정리했어요. 화면을 확인하시고 복사해서 보내세요.";
+      say(m); await speak(m);
+    },
+    current() { return $("letter-body").value.trim(); },
+    async copy() {
+      try { await navigator.clipboard.writeText(this.current()); return true; }
+      catch (_) { const b = $("letter-body"); b.focus(); b.select(); try { return document.execCommand("copy"); } catch (e) { return false; } }
+    },
+    async share() {
+      if (navigator.share) { try { await navigator.share({ text: this.current() }); return true; } catch (_) { return false; } }
+      return this.copy();
+    },
+    async send() {
+      if (!cfg.photoTopic) return false;
+      try {
+        const r = await fetch(`https://ntfy.sh/${encodeURIComponent(cfg.photoTopic)}?title=${encodeURIComponent(`${cfg.letterSign || "엄마"}의 편지`)}&tags=love_letter,from_home`,
+          { method: "POST", body: this.current() });
+        return r.ok;
+      } catch (_) { return false; }
+    },
+    close() { this.on = false; $("letter").hidden = true; Ear.followUntil = 0; },
+  };
+
+  // ================= 사진 액자 =================
+  // 몇 분 동안 아무 일이 없으면 저장한 사진을 천천히 넘겨 보여 줌 (시계·날짜·아들 날짜와 함께).
+  // 말을 걸거나 톡 치면 바로 형스 얼굴로 돌아옴. 밤에는 잠.
+  const Frame = {
+    shown: false, list: [], i: 0, timer: null, url: null, loadedAt: 0,
+    enabled() { return cfg.frameOn !== false && Photos.albums.length > 0; },
+    async show() {
+      if (this.shown) return;
+      if (!this.list.length || Date.now() - this.loadedAt > 10 * 60 * 1000) {
+        this.list = (await Photos.all()).sort(() => Math.random() - 0.5); this.loadedAt = Date.now();
+      }
+      if (!this.list.length) return;
+      this.shown = true; this.i = -1;
+      $("frame").hidden = false; this.next(); this.clock();
+    },
+    next() {
+      clearTimeout(this.timer);
+      if (!this.shown) return;
+      this.i = (this.i + 1) % this.list.length;
+      const img = $("frame-img"); img.classList.remove("in");
+      setTimeout(() => {
+        if (!this.shown) return;
+        if (this.url) URL.revokeObjectURL(this.url);
+        this.url = URL.createObjectURL(this.list[this.i].blob);
+        img.onload = () => img.classList.add("in"); img.src = this.url;
+        $("frame-note").textContent = this.list[this.i].note || "";
+      }, 600);
+      this.timer = setTimeout(() => this.next(), 12000);
+    },
+    clock() {
+      if (!this.shown) return;
+      const d = new Date();
+      $("frame-time").textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+      $("frame-date").textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${"일월화수목금토"[d.getDay()]}요일`;
+      const dc = DayCount.get(); $("frame-dday").textContent = dc ? dc.short : "";
+      setTimeout(() => this.clock(), 15000);
+    },
+    hide() {
+      if (!this.shown) return;
+      this.shown = false; clearTimeout(this.timer);
+      $("frame").hidden = true;
+      const img = $("frame-img"); img.classList.remove("in"); img.removeAttribute("src");
+      if (this.url) { URL.revokeObjectURL(this.url); this.url = null; }
+    },
+    check() {
+      if (this.shown) {
+        if (state !== "idle" || face.dataset.m !== "idle" || !panel.hidden || Letter.on || Reminders.active || isNight()) this.hide();
+        return;
+      }
+      const after = (+cfg.frameAfterMin || 3) * 60 * 1000;
+      if (this.enabled() && state === "idle" && face.dataset.m === "idle" && panel.hidden && !Letter.on && !Reminders.active &&
+          !Music.playing && !isNight() && Date.now() - lastActive > after) this.show();
+    },
+  };
+  setInterval(() => Frame.check(), 1000);
+
+  // ---------------- 아들 목소리 (미리 녹음한 인사 + 보내온 음성 메시지) ----------------
+  // kind: morning 아침 인사, night 잘 자 인사, any 평소, msg 보내온 음성 메시지. 이 폰 크롬 안에만 저장.
+  const VOICE_KINDS = { morning: "아침 인사", night: "잘 자 인사", any: "평소 한마디" };
+  const Voices = {
+    counts: {}, playing: false, el: null, url: null,
+    db() {
+      return new Promise((ok, no) => {
+        try {
+          const r = indexedDB.open("hyungs-voices", 1);
+          r.onupgradeneeded = () => r.result.createObjectStore("clips", { keyPath: "id", autoIncrement: true });
+          r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error);
+        } catch (e) { no(e); }
+      });
+    },
+    async tx(mode, fn) {
+      const db = await this.db();
+      return new Promise((ok, no) => {
+        const t = db.transaction("clips", mode), st = t.objectStore("clips");
+        const res = fn(st);
+        t.oncomplete = () => ok(res && res.result !== undefined ? res.result : res);
+        t.onerror = () => no(t.error);
+      });
+    },
+    async all() { try { return await this.tx("readonly", (st) => st.getAll()); } catch (_) { return []; } },
+    async refresh() { const c = {}; (await this.all()).forEach((v) => (c[v.kind] = (c[v.kind] || 0) + 1)); this.counts = c; return c; },
+    async add(kind, file, note = "") {
+      const id = await this.tx("readwrite", (st) => st.add({ kind, name: file.name, blob: file, note, t: Date.now() }));
+      await this.refresh(); return id;
+    },
+    async clear(kind) {
+      const ids = (await this.all()).filter((v) => v.kind === kind).map((v) => v.id);
+      await this.tx("readwrite", (st) => ids.forEach((id) => st.delete(id)));
+      return this.refresh();
+    },
+    prompt() {
+      const c = this.counts, n = Object.values(c).reduce((a, b) => a + b, 0);
+      return n ? `[${Inbox.who()} 목소리]\n이 폰에 ${Inbox.who()}가 직접 녹음한 목소리가 ${n}개 있어. ${Inbox.who()} 목소리를 듣고 싶다고 하면 voice를 "play"로 하고 text는 "${Inbox.who()} 목소리 들려 드릴게요."처럼 짧게. 음성 메시지를 다시 듣고 싶다고 하면 "msg".`
+        : `[${Inbox.who()} 목소리]\n아직 녹음된 목소리가 없어. 듣고 싶다고 하면 voice는 비우고 설정에서 녹음 파일을 넣을 수 있다고 말해.`;
+    },
+    // 오늘 이미 튼 것(아침·밤)은 하루 한 번만
+    playedToday(kind) { return store.get("voiceDay." + kind, "") === new Date().toDateString(); },
+    markToday(kind) { store.set("voiceDay." + kind, new Date().toDateString()); },
+    async pick(kinds) {
+      const list = (await this.all()).filter((v) => kinds.includes(v.kind));
+      if (!list.length) return null;
+      if (kinds.includes("msg") && kinds.length === 1) return list.sort((a, b) => b.t - a.t)[0];   // 메시지는 가장 최근 것
+      const lastId = store.get("voiceLast", 0), pool = list.length > 1 ? list.filter((v) => v.id !== lastId) : list;
+      const v = pool[Math.floor(Math.random() * pool.length)]; store.set("voiceLast", v.id); return v;
+    },
+    // 클립 하나 재생 (최대 2분). 재생하는 동안은 듣지 않음
+    play(clip) {
+      if (!clip) return Promise.resolve(false);
+      this.stop();
+      const keep = state; state = "voice"; this.playing = true; setMood("love"); showHint(false);
+      return new Promise((ok) => {
+        const el = this.el = new Audio(); this.url = URL.createObjectURL(clip.blob); el.src = this.url;
+        const end = () => { if (!this.playing) return; this.stop(); if (state === "voice") state = keep === "sleep" ? "sleep" : "react"; lastActive = Date.now(); ok(true); };
+        el.onended = end; el.onerror = end; setTimeout(end, 120000);
+        el.play().catch(end);
+      });
+    },
+    stop() {
+      this.playing = false;
+      try { this.el && this.el.pause(); } catch (_) {}
+      if (this.url) { URL.revokeObjectURL(this.url); this.url = null; }
+      this.el = null;
+    },
+    async playKinds(kinds) { return this.play(await this.pick(kinds)); },
+  };
+  Voices.refresh();
+
+  // ---------------- 아들이 보낸 사진·메시지 받기 (ntfy) ----------------
+  // 아들 폰의 ntfy 앱에서 '사진 받는 주소'로 사진을 보내면, 형스가 받아 아들 이름 앨범에 저장하고 알려 줌.
+  // ntfy 무료 서버는 사진을 몇 시간만 보관하므로, 그동안 형스가 켜져 있어야 받음.
+  const Inbox = {
+    es: null, topic: "", fresh: [], status: "꺼짐", timer: null, busy: false,
+    album() { return cfg.sonName || "아들"; },
+    who() {                                                    // 주형 → 주형이, 민수 → 민수
+      const nm = cfg.sonName || "아들", k = nm.charCodeAt(nm.length - 1) - 0xac00;
+      return cfg.sonName && k >= 0 && k <= 11171 && k % 28 ? nm + "이" : nm;
+    },
+    start() {
+      const t = (cfg.photoTopic || "").trim();
+      if (t === this.topic && this.es) return;
+      this.stop(); this.topic = t;
+      if (!t) { this.status = "꺼짐"; return; }
+      const since = store.get("inboxLast", "") || "6h";      // 꺼져 있던 동안 온 것도 받기
+      const es = this.es = new EventSource(`https://ntfy.sh/${encodeURIComponent(t)}/sse?since=${encodeURIComponent(since)}`);
+      this.status = "연결하는 중";
+      es.onopen = () => { this.status = "연결됨"; };
+      es.onerror = () => { this.status = "다시 연결하는 중"; };
+      es.onmessage = (e) => { try { this.onMsg(JSON.parse(e.data)); } catch (_) {} };
+    },
+    stop() { try { this.es && this.es.close(); } catch (_) {} this.es = null; this.topic = ""; },
+    async onMsg(m) {
+      if (!m || m.event !== "message" || !m.id) return;
+      if ((m.tags || []).includes("from_home")) return;          // 형스가 보낸 편지는 다시 받지 않음
+      if ((m.tags || []).includes("vault")) { Vault.poll(); return; }   // 보관함에 새로 온 것 → 바로 받아 옴
+      const seen = store.get("inboxSeen", []);
+      if (seen.includes(m.id)) return;
+      store.set("inboxSeen", [...seen, m.id].slice(-60)); store.set("inboxLast", m.id);
+      const text = String(m.message || "").replace(/^You received a file: .*$/, "").trim().slice(0, 120);
+      const a = m.attachment;
+      const isImg = a && (/^image\//.test(a.type || "") || /\.(jpe?g|png|webp|gif|heic)$/i.test(a.name || ""));
+      const isAudio = a && (/^audio\//.test(a.type || "") || /\.(m4a|mp3|aac|ogg|opus|wav|amr|3gp|weba)$/i.test(a.name || ""));
+      if (isAudio && !(a.expires && a.expires * 1000 < Date.now())) {
+        try {
+          const r = await fetch(a.url); if (!r.ok) throw new Error("HTTP " + r.status);
+          const blob = await r.blob();
+          const vid = await Voices.add("msg", new File([blob], a.name || "voice.m4a", { type: blob.type || a.type || "audio/mp4" }), text);
+          this.fresh.push({ vid, text }); this.status = "연결됨 · 최근 음성 메시지 받음"; this.later(1500);
+        } catch (e) { this.status = `음성 메시지를 받지 못함 (${e.message})`; }
+        return;
+      }
+      if (!isImg) { if (text) { this.fresh.push({ text }); this.later(1500); } return; }
+      if (a.expires && a.expires * 1000 < Date.now()) return;
+      try {
+        const r = await fetch(a.url);
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const blob = await r.blob();
+        const id = await Photos.addOne(this.album(), new File([blob], a.name || "photo.jpg", { type: blob.type || a.type || "image/jpeg" }), text);
+        this.fresh.push({ id, text });
+        this.status = "연결됨 · 최근 사진 받음";
+        this.later(1500);
+      } catch (e) { this.status = `사진을 받지 못함 (${e.message})`; }
+    },
+    later(ms) { clearTimeout(this.timer); this.timer = setTimeout(() => this.announce(), ms); },
+    // 형스가 한가하고 앞에 사람이 있을 때 알려 줌 (자는 중·대화 중·음악 중에는 기다림)
+    async announce() {
+      if (!this.fresh.length || this.busy) return;
+      const someone = !Vision.stream || Date.now() - Vision.lastSeen < 60000 || Date.now() - lastActive < 120000;
+      if (state !== "idle" || !panel.hidden || Music.playing || Photos.showing || !someone) return this.later(5000);
+      this.busy = true;
+      const items = this.fresh.splice(0), pics = items.filter((x) => x.id), vids = items.filter((x) => x.vid);
+      const notes = items.filter((x) => !x.id && !x.vid).map((x) => x.text);
+      try {
+        clearTimeout(holdTimer); state = "react"; setMood("love"); body("nod"); chirp("love"); lastActive = Date.now();
+        const who = this.who();
+        const lines = [];
+        if (pics.length) lines.push(`${who}가 사진을 ${pics.length > 1 ? pics.length + "장 " : ""}보냈어요!`);
+        for (const t of notes) lines.push(`${who}가 "${t}"라고 보냈어요.`);
+        if (vids.length) lines.push(`${who}가 음성 메시지를 보냈어요! 들려 드릴게요.`);
+        for (const l of lines) { say(l); await speak(l); }
+        if (vids.length) {
+          const all = await Voices.all();
+          for (const v of vids) { const clip = all.find((c) => c.id === v.vid); if (clip) { say(v.text || `${who} 목소리`); await Voices.play(clip); } }
+        }
+        if (pics.length) await Photos.showIds(pics.map((x) => x.id));
+      } finally { this.busy = false; toIdle(); }
+    },
+    // 설정의 '시험 사진 보내기': 작은 그림을 이 주소로 보내 봄
+    async test(topic) {
+      const cv = document.createElement("canvas"); cv.width = 640; cv.height = 480;
+      const g = cv.getContext("2d");
+      g.fillStyle = "#1d2a44"; g.fillRect(0, 0, 640, 480);
+      g.fillStyle = "#9fe3ff"; g.font = "bold 56px sans-serif"; g.textAlign = "center";
+      g.fillText("시험 사진", 320, 220); g.font = "32px sans-serif"; g.fillText(new Date().toLocaleString("ko-KR"), 320, 290);
+      const jpg = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.85));
+      const r = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}?filename=test.jpg&message=${encodeURIComponent("시험 사진이에요")}`,
+        { method: "POST", body: new Blob([jpg]) });          // 형식을 안 붙여야 사전 요청 없이 보내짐
+      return r.ok;
+    },
+  };
+
+  // ---------------- 사진 보관함 (Firebase Firestore, 무료) ----------------
+  // 아들이 '엄마에게 보내기' 페이지(send.html)로 보낸 사진·음성·글이 지워지지 않고 보관됨.
+  // 형스를 열 때마다(그리고 열려 있는 동안 1분마다) 새로 온 것을 받아 이 폰에 저장하고 알려 줌.
+  // 가족 코드(famId)를 아는 사람만 읽고 쓸 수 있으니 가족끼리만 나누기.
+  const Vault = {
+    status: "꺼짐", timer: null, busy: false,
+    on() { return !!(cfg.fbProject && cfg.fbKey && cfg.famId); },
+    base() { return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(cfg.fbProject)}/databases/(default)/documents/families/${encodeURIComponent(cfg.famId)}`; },
+    start() {
+      clearInterval(this.timer);
+      if (!this.on()) { this.status = "꺼짐"; return; }
+      this.poll();
+      this.timer = setInterval(() => { if (document.visibilityState === "visible") this.poll(); }, 60000);
+    },
+    b64ToBlob(b64, mime) {
+      const bin = atob(b64), u = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      return new Blob([u], { type: mime || "application/octet-stream" });
+    },
+    // silent: 폰을 바꿨을 때 '다시 받기' (알려 주지 않고 저장만)
+    async poll(silent = false) {
+      if (!this.on() || this.busy) return 0;
+      this.busy = true;
+      let got = 0;
+      try {
+        for (let page = 0; page < 30; page++) {
+          const last = +store.get("vaultLast", 0);
+          const r = await fetch(`${this.base()}:runQuery?key=${encodeURIComponent(cfg.fbKey)}`, {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "inbox" }],
+              where: { fieldFilter: { field: { fieldPath: "t" }, op: "GREATER_THAN", value: { integerValue: String(last) } } },
+              orderBy: [{ field: { fieldPath: "t" }, direction: "ASCENDING" }], limit: 5 } }),
+          });
+          if (!r.ok) { this.status = r.status === 403 ? "보관함 권한 오류 (보안 규칙·가족 코드 확인)" : r.status === 400 ? "보관함 설정 오류 (프로젝트 ID·키 확인)" : `보관함 오류 HTTP ${r.status}`; break; }
+          const rows = (await r.json()).filter((x) => x.document);
+          if (!rows.length) { this.status = got ? `연결됨 · 새로 ${got}개 받음` : "연결됨"; break; }
+          for (const { document: d } of rows) {
+            const f = d.fields || {}, kind = f.kind?.stringValue, t = +(f.t?.integerValue || 0);
+            const note = (f.note?.stringValue || "").slice(0, 200), mime = f.mime?.stringValue || "";
+            try {
+              if (kind === "photo" && f.data?.bytesValue) {
+                const id = await Photos.addOne(Inbox.album(), new File([this.b64ToBlob(f.data.bytesValue, mime || "image/jpeg")], "vault.jpg", { type: mime || "image/jpeg" }), note);
+                if (!silent) Inbox.fresh.push({ id, text: note });
+              } else if (kind === "voice" && f.data?.bytesValue) {
+                const vid = await Voices.add("msg", new File([this.b64ToBlob(f.data.bytesValue, mime || "audio/webm")], "voice", { type: mime || "audio/webm" }), note);
+                if (!silent) Inbox.fresh.push({ vid, text: note });
+              } else if (kind === "text" && note && !silent) Inbox.fresh.push({ text: note });
+            } catch (e) { console.warn(e); }
+            got++;
+            store.set("vaultLast", t);
+          }
+        }
+      } catch (e) { this.status = "보관함에 연결하지 못함 (인터넷 확인)"; }
+      finally { this.busy = false; }
+      if (got && !silent) Inbox.later(1500);
+      return got;
+    },
+    newFamId() {
+      const a = new Uint8Array(16); crypto.getRandomValues(a);
+      return "fam-" + [...a].map((x) => "abcdefghijkmnpqrstuvwxyz23456789"[x % 32]).join("");
+    },
+    // 아들에게 줄 '엄마에게 보내기' 링크 (설정값은 # 뒤에 있어 서버로 가지 않음)
+    sendLink() {
+      const u = new URL("send.html", location.href);
+      const q = new URLSearchParams({ p: cfg.fbProject, k: cfg.fbKey, f: cfg.famId, t: cfg.photoTopic || "", n: cfg.sonName || "", m: cfg.letterSign || "엄마" });
+      return `${u.origin}${u.pathname}#${q}`;
+    },
+  };
+
+  const Music = {
+    SYNTH_GAIN: 3.0, playing: false, mood: null, ctx: null, out: null, timer: null, endTimer: null, el: null, url: null, vol: 0.6,
+    ensureCtx() {
+      if (this.ctx) return this.ctx;
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      const ctx = this.ctx = new C();
+      const comp = ctx.createDynamicsCompressor(); comp.connect(ctx.destination);
+      this.out = ctx.createGain(); this.out.connect(comp);
+      // 잔향
+      const len = ctx.sampleRate * 2.4, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+      this.rev = ctx.createConvolver(); this.rev.buffer = ir;
+      const rg = ctx.createGain(); rg.gain.value = 0.35; this.rev.connect(rg); rg.connect(this.out);
+      this.dry = ctx.createGain(); this.dry.connect(this.out);
+      return ctx;
+    },
+    level() { return (+cfg.musicVol || 0.6) * (this.ducked ? 0.25 : 1); },
+    duck(on) {
+      this.ducked = on;
+      if (this.el) this.el.volume = Math.min(1, this.level());
+      if (this.out && this.playing) this.out.gain.setTargetAtTime(this.level() * this.SYNTH_GAIN, this.ctx.currentTime, 0.2);
+    },
+
+    log: [],
+    note(what) {
+      this.log.push({ t: Date.now(), what: what + (recRunning ? "+듣기켜짐" : "") + (Vision.stream ? "+카메라" : "") });
+      if (this.log.length > 30) this.log.shift();
+    },
+    async play(mood) {
+      this.stop(true);
+      const M = MUSIC_MOODS[mood] || MUSIC_MOODS.calm;
+      this.playing = true; this.mood = mood; state = "music";
+      if (recRunning && recMode === "wake") try { rec.abort(); } catch (_) {}
+      setMood(mood === "sleep" ? "sleep" : "happy"); face.classList.add("dance");
+      say(`♪ ${M.label}`); hint.textContent = "화면을 톡 치면 음악이 멈춰요"; showHint(true);
+      const tracks = await MusicDB.byMood(mood);
+      if (!this.playing || this.mood !== mood) return;
+      if (tracks.length) this.playFiles(tracks.sort(() => Math.random() - 0.5));
+      else this.playSynth(M);
+      this.endTimer = setTimeout(() => this.stop(), M.min * 60 * 1000);
+      this.dance(M);
+    },
+    playFiles(list) {
+      let i = 0;
+      const next = () => {
+        if (!this.playing) return;
+        if (i >= list.length) { this.stop(); return; }
+        if (this.url) URL.revokeObjectURL(this.url);
+        this.url = URL.createObjectURL(list[i].blob);
+        say(`♪ ${list[i].name.replace(/\.[^.]+$/, "")}`);
+        i++;
+        const el = this.el = new Audio(this.url); el.volume = Math.min(1, this.level()); el.preload = "auto";
+        el.onended = next; el.onerror = next;
+        // 다른 소리(음성 인식, 알림 등)가 끼어들어 안드로이드가 음악을 멈추면 곧바로 다시 재생
+        el.onpause = () => {
+          if (!this.playing || this.el !== el || el.ended) return;
+          this.note("멈춤"); setTimeout(() => { if (this.playing && this.el === el && el.paused) el.play().catch(() => {}); }, 250);
+        };
+        el.onwaiting = () => this.note("버퍼링");
+        el.onstalled = () => this.note("읽기 지연");
+        this.el.play().catch(() => { const M = MUSIC_MOODS[this.mood]; this.el = null; this.playSynth(M); });
+      };
+      next();
+    },
+
+    // ---- 형스가 직접 연주 ----
+    playSynth(M) {
+      const ctx = this.ensureCtx(); if (!ctx) { this.stop(); return; }
+      ctx.resume();
+      this.out.gain.cancelScheduledValues(ctx.currentTime);
+      this.out.gain.setValueAtTime(0.0001, ctx.currentTime);
+      this.out.gain.exponentialRampToValueAtTime(this.level() * this.SYNTH_GAIN, ctx.currentTime + 3);
+      const step = 60 / M.bpm / 2;                 // 8분음표
+      const stepsPerChord = M.perChord * 2;
+      let n = 0, t = ctx.currentTime + 0.15, melNote = 7, chordIx = 0;
+      const mtf = (m) => 440 * Math.pow(2, (m - 69) / 12);
+      this.timer = setInterval(() => {
+        while (t < ctx.currentTime + 0.25) {
+          const sInChord = n % stepsPerChord;
+          if (sInChord === 0) chordIx = Math.floor(n / stepsPerChord) % M.chords.length;
+          const ch = M.chords[chordIx].map((x) => M.key + x);
+          const beatStep = n % (M.beats * 2);
+          if (sInChord === 0) {
+            if (!M.box) this.pad(ch.map((x) => mtf(x - 12)), t, step * stepsPerChord);
+            this.bass(mtf(ch[0] - 24), t, step * 4);
+          }
+          if (M.box) {                               // 왈츠 자장가: 쿵 짝 짝
+            if (beatStep === 0) this.bass(mtf(ch[0] - 24), t, step * 2);
+            if (beatStep === 2 || beatStep === 4) { this.bell(mtf(ch[1] + 12), t, 0.12); this.bell(mtf(ch[2] + 12), t, 0.12); }
+          } else if (M.arp && (M.arp >= 1 || n % Math.round(2 / M.arp) === 0)) {
+            const a = ch[(n >> (M.arp >= 1 ? 0 : 1)) % ch.length] + (n % 4 < 2 ? 0 : 12);
+            this.pluck(mtf(a), t, step * 1.8, 0.10);
+          }
+          if (M.drums) {
+            if (beatStep % 4 === 0) this.kick(t);
+            if (n % 2 === 1) this.hat(t);
+          }
+          if ((n % 2 === 0 || M.bpm > 90) && Math.random() < M.mel) {   // 멜로디
+            melNote = Math.max(5, Math.min(14, melNote + [-2, -1, -1, 0, 1, 1, 2][Math.floor(Math.random() * 7)]));
+            let note = M.key + Math.floor(melNote / 5) * 12 + PENTA[melNote % 5];      // 한두 옥타브 위 5음계
+            if (beatStep === 0) note = ch[Math.floor(Math.random() * ch.length)] + 12;  // 첫 박은 화음 음
+            if (M.box) this.bell(mtf(note + 12), t, 0.2);
+            else this.pluck(mtf(note), t, step * (M.bpm > 90 ? 1.5 : 3), 0.16);
+          }
+          n++; t += step;
+        }
+      }, 40);
+    },
+    env(g, t, a, peak, d) {
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + a);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+    },
+    voice(type, f, t, a, peak, d, cutoff, rev = 0.5, detune = 0) {
+      const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+      o.type = type; o.frequency.value = f; o.detune.value = detune;
+      lp.type = "lowpass"; lp.frequency.value = cutoff;
+      o.connect(lp); lp.connect(g); g.connect(this.dry);
+      if (rev) { const s = ctx.createGain(); s.gain.value = rev; g.connect(s); s.connect(this.rev); }
+      this.env(g, t, a, peak, d); o.start(t); o.stop(t + a + d + 0.05);
+    },
+    pluck(f, t, d, v) { this.voice("triangle", f, t, 0.006, v, d, 2600); this.voice("sine", f * 2, t, 0.004, v * 0.25, d * 0.6, 4000, 0.3); },
+    bell(f, t, v) { this.voice("sine", f, t, 0.004, v, 1.6, 6000, 0.7); this.voice("sine", f * 4.01, t, 0.002, v * 0.18, 0.5, 8000, 0.5); },
+    pad(fs, t, d) { fs.forEach((f) => { this.voice("sawtooth", f, t, 1.2, 0.028, d + 0.6, 900, 0.8, -7); this.voice("sawtooth", f, t, 1.2, 0.028, d + 0.6, 900, 0.8, 7); }); },
+    bass(f, t, d) { this.voice("triangle", f, t, 0.02, 0.22, d, 500, 0.1); },
+    kick(t) {
+      const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.15);
+      o.connect(g); g.connect(this.dry); this.env(g, t, 0.003, 0.35, 0.22); o.start(t); o.stop(t + 0.3);
+    },
+    hat(t) {
+      const ctx = this.ctx, len = Math.floor(ctx.sampleRate * 0.05), b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const s = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = b; hp.type = "highpass"; hp.frequency.value = 7000;
+      s.connect(hp); hp.connect(g); g.connect(this.dry); this.env(g, t, 0.002, 0.05, 0.05); s.start(t);
+    },
+
+    dance(M) {
+      clearInterval(this.danceTimer);
+      const beat = 60 / M.bpm * 1000;
+      let k = 0;
+      this.danceTimer = setInterval(() => {
+        if (!this.playing || state !== "music") return;
+        k++;
+        if (M.drums && k % 8 === 0) body("wiggle");
+        else if (!M.box && k % 16 === 0) body(k % 32 === 0 ? "tilt" : "nod");
+      }, beat);
+    },
+
+    stop(quiet) {
+      const was = this.playing;
+      if (state === "music") state = "idle";
+      Ear?.kick(800);
+      this.playing = false; this.mood = null;
+      clearInterval(this.timer); clearInterval(this.danceTimer); clearTimeout(this.endTimer);
+      if (this.el) { this.el.pause(); this.el = null; }
+      if (this.url) { URL.revokeObjectURL(this.url); this.url = null; }
+      if (this.ctx && this.out) {
+        const t = this.ctx.currentTime;
+        this.out.gain.cancelScheduledValues(t);
+        this.out.gain.setValueAtTime(Math.max(this.out.gain.value, 0.0001), t);
+        this.out.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+      }
+      face.classList.remove("dance");
+      setHint();
+      if (was && !quiet) { lastActive = Date.now(); say(""); toIdle(); }
+    },
+  };
+  window.hyungs = { Music, offlineReply, parseReply };   // 개발·시험용
+  window.hyungs.GEar = GEar; window.hyungs.Photos = Photos; window.hyungs.Inbox = Inbox; window.hyungs.Voices = Voices;
+  window.hyungs.Reminders = Reminders; window.hyungs.Brief = Brief; window.hyungs.Letter = Letter; window.hyungs.Frame = Frame; window.hyungs.HAS_BODY = HAS_BODY; window.hyungs.Vault = Vault;
+  // 첫 터치 때 오디오도 미리 깨워 둠 (안드로이드 자동재생 제한)
+  document.addEventListener("pointerdown", () => { const c = Music.ensureCtx(); if (c && c.state === "suspended") c.resume(); }, { capture: true });
+
+  // ---------------- 카메라: 앞사람 얼굴 따라보기 ----------------
+  // 크롬의 내장 얼굴 감지(FaceDetector)를 먼저 쓰고, 없으면 MediaPipe(처음 한 번 내려받음)를 씁니다. 영상은 폰 밖으로 나가지 않습니다.
+  const MP_VER = "0.10.14";
+  const Vision = {
+    stream: null, detect: null, loopTimer: null, lastSeen: 0, lastGone: Date.now(), lastGreet: 0,
+    sx: 0, sy: 0, sentX: 9, sentY: 9, lastSent: 0, busy: false, streak: 0, missStreak: 0, prevSeen: 0,
+    tracking() { return this.stream && Date.now() - this.lastSeen < 1500; },
+    async makeDetector() {
+      if ("FaceDetector" in window) {
+        try {
+          const fd = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+          await fd.detect(document.createElement("canvas"));
+          return async (v) => { const f = (await fd.detect(v))[0]; return f && f.boundingBox; };
+        } catch (_) { /* 이 폰에선 안 됨 → MediaPipe */ }
+      }
+      const mp = await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/vision_bundle.mjs`);
+      const files = await mp.FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`);
+      const det = await mp.FaceDetector.createFromOptions(files, {
+        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite", delegate: "GPU" },
+        runningMode: "VIDEO", minDetectionConfidence: 0.55,
+      });
+      return async (v) => {
+        const d = det.detectForVideo(v, performance.now()).detections[0];
+        if (!d) return null;
+        const b = d.boundingBox; return { x: b.originX, y: b.originY, width: b.width, height: b.height };
+      };
+    },
+    async start() {
+      if (this.stream || isNight()) return;
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } }, audio: false });
+      } catch (e) {
+        console.warn(e); this.stream = null;
+        say("카메라를 쓸 수 없어요. 카메라 권한을 허용해 주세요."); return;
+      }
+      const v = $("cam-video"); v.srcObject = this.stream; await v.play().catch(() => {});
+      $("cam-dot").classList.add("on");
+      if (!this.detect) {
+        try { this.detect = await this.makeDetector(); }
+        catch (e) { console.warn(e); say("얼굴 찾기 도구를 내려받지 못했어요. 인터넷 연결을 확인해 주세요."); this.stop(); return; }
+      }
+      clearInterval(this.loopTimer);
+      this.loopTimer = setInterval(() => this.tick(), 220);
+    },
+    stop() {
+      clearInterval(this.loopTimer); this.loopTimer = null;
+      if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+      this.stream = null; this.streak = 0; $("cam-dot").classList.remove("on", "seen");
+    },
+    async tick() {
+      if (this.busy || !this.stream || Music.playing) return;   // 음악 중엔 얼굴 찾기를 쉬어 폰 부담을 줄임
+      if (isNight()) { this.stop(); return; }                 // 밤에는 끔 (아침에 다시 켬)
+      const v = $("cam-video");
+      if (v.readyState < 2 || !v.videoWidth) return;
+      this.busy = true;
+      try {
+        const b = await this.detect(v);
+        if (b && b.width > v.videoWidth * 0.05) this.onFace((b.x + b.width / 2) / v.videoWidth, (b.y + b.height / 2) / v.videoHeight);
+        else this.onNoFace();
+      } catch (e) { console.warn(e); }
+      this.busy = false;
+    },
+    onFace(cx, cy) {
+      const now = Date.now();
+      this.missStreak = 0;
+      if (this.streak === 0) this.prevSeen = this.lastSeen;     // 이번에 나타나기 전 마지막으로 본 때
+      this.streak++;
+      this.lastSeen = now; lastActive = now;
+      $("cam-dot").classList.add("seen");
+      // 화면 속 눈이 사람 쪽을 보도록 (앞 카메라는 좌우가 반대). 얼굴은 화면 가운데 근처에만 있으니 크게 키움
+      let x = -(cx - 0.5) * 2 * 1.8, y = -(cy - 0.45) * 2 * 1.5;
+      if (cfg.camFlip) x = -x;
+      x = Math.max(-1, Math.min(1, x)); y = Math.max(-1, Math.min(1, y));
+      this.sx += (x - this.sx) * 0.45; this.sy += (y - this.sy) * 0.45;
+      const busyFace = ["listen", "think", "speak", "pet", "sleep"].includes(state);
+      if (!busyFace) {
+        face.style.setProperty("--lx", (this.sx * 22).toFixed(1) + "%");
+        face.style.setProperty("--ly", (this.sy * 20).toFixed(1) + "%");
+      }
+      if (state !== "sleep" && now - this.lastSent > 450 && (Math.abs(this.sx - this.sentX) > 0.08 || Math.abs(this.sy - this.sentY) > 0.08)) {
+        this.lastSent = now; this.sentX = this.sx; this.sentY = this.sy;
+        bodyLook(this.sx * 0.8, this.sy * 0.6);
+      }
+      // 얼굴이 잠깐(약 0.7초) 계속 보이면 반응
+      if (this.streak !== 3) return;
+      const away = !this.prevSeen || now - this.prevSeen > 3 * 60 * 1000;   // 3분 넘게 아무도 없다가 나타남
+      const canGreet = away && now - this.lastGreet > 10 * 60 * 1000 && !Music.playing && !isNight();
+      if (state === "sleep" && !isNight()) {
+        if (canGreet) this.greet(now);
+        else { state = "react"; setMood("happy"); body("wake"); showHint(false); holdThenIdle(2500); }
+      } else if (state === "idle" && canGreet) this.greet(now);
+    },
+    greet(now) {
+      this.lastGreet = now;
+      const h = new Date().getHours();
+      const w = h < 11 ? "좋은 아침이에요!" : h < 17 ? "어서 오세요! 보고 싶었어요." : "오셨어요? 오늘도 수고 많으셨어요.";
+      state = "react"; setMood("happy"); body("wake"); say(w); showHint(false);
+      speak(w).then(async () => {
+        if (h >= 5 && h < 11 && cfg.briefOn !== false && !Brief.doneToday()) await Brief.run();   // 하루 첫 아침 인사엔 브리핑
+        if (h >= 5 && h < 11 && !Voices.playedToday("morning") && Voices.counts.morning) {   // 하루 첫 아침 인사엔 아들 목소리
+          Voices.markToday("morning"); say(`${Inbox.who()} 아침 인사예요.`); await Voices.playKinds(["morning"]);
+        }
+        holdThenIdle(3000);
+      });
+    },
+    onNoFace() {
+      this.missStreak++;
+      if (this.missStreak >= 4) { this.streak = 0; $("cam-dot").classList.remove("seen"); }   // 약 1초 안 보이면 사라진 것으로
+      if (this.lastSeen && Date.now() - this.lastSeen > 1500 && Date.now() - this.lastSeen < 2000 && state === "idle") {
+        face.style.setProperty("--lx", "0"); face.style.setProperty("--ly", "0"); bodyLook(0, 0);
+        this.sentX = this.sentY = 9;
+      }
+    },
+  };
+  // 아침이 되면 카메라 다시 켜기
+  setInterval(() => { if (cfg.camOn && !Vision.stream && !isNight()) Vision.start(); }, 5 * 60 * 1000);
+
+  // ---------------- 인터넷 검색 (무료) ----------------
+  // 모두 무료·키 없음. 날씨: Open-Meteo / 뉴스: 구글 뉴스 RSS (브라우저는 CORS로 막혀 ESP32가 대신 요청) / 지식: 위키백과
+  const WMO = { 0: "맑음", 1: "대체로 맑음", 2: "구름 조금", 3: "흐림", 45: "안개", 48: "안개", 51: "약한 이슬비", 53: "이슬비", 55: "강한 이슬비",
+    61: "약한 비", 63: "비", 65: "강한 비", 66: "어는 비", 67: "어는 비", 71: "약한 눈", 73: "눈", 75: "많은 눈", 77: "싸락눈",
+    80: "소나기", 81: "소나기", 82: "강한 소나기", 85: "눈 소나기", 86: "강한 눈 소나기", 95: "뇌우", 96: "우박 동반 뇌우", 99: "우박 동반 뇌우" };
+  const stripTags = (x) => String(x || "").replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'");
+  const Search = {
+    async run(type, query) {
+      try {
+        if (type === "weather") return await this.weather();
+        if (type === "local") return { ok: false, say: "가게나 장소 정보는 아직 찾아볼 수가 없어요. 지도 앱으로 확인해 보시겠어요?" };
+        if (type === "news") return await this.news(query);
+        if (type === "fx") return await this.fx(query);
+        if (type === "encyc") return await this.wiki(query);
+        if (!HAS_BODY) return await this.webGemini(query);                 // web: 구글 검색으로
+        // web: 그 밖의 궁금한 것 → 뉴스와 위키백과를 함께 찾아 합침
+        const [n, w] = await Promise.all([this.news(query).catch(() => ({ ok: false })), this.wiki(query).catch(() => ({ ok: false }))]);
+        if (n.ok && w.ok) return { ok: true, source: "구글 뉴스와 위키백과", context: `[뉴스]\n${n.context}\n[위키백과]\n${w.context}`, plain: n.plain };
+        if (n.ok || w.ok) return n.ok ? n : w;
+        return { ok: false, say: `"${query}"에 대한 소식을 찾지 못했어요. 조금 다르게 물어봐 주시겠어요?` };
+      } catch (e) {
+        console.warn(e);
+        return { ok: false, say: "지금은 찾아볼 수가 없어요. 인터넷 연결을 확인해 주세요." };
+      }
+    },
+    async weather() {
+      const lat = cfg.lat || 37.55, lon = cfg.lon || 126.85;          // 기본: 서울
+      const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+        "&current=temperature_2m,apparent_temperature,weather_code,precipitation,wind_speed_10m" +
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
+        "&timezone=Asia%2FSeoul&forecast_days=3";
+      const aq = this.air(lat, lon);                                   // 미세먼지 (같이 요청, 실패해도 날씨는 알려 줌)
+      const r = await fetch(u); if (!r.ok) throw new Error("weather " + r.status);
+      const d = await r.json(), c = d.current, dl = d.daily;
+      const air = await aq;
+      const day = (i) => `${["오늘", "내일", "모레"][i]} ${WMO[dl.weather_code[i]] || "날씨 정보 없음"}, 최고 ${Math.round(dl.temperature_2m_max[i])}도 최저 ${Math.round(dl.temperature_2m_min[i])}도, 비 올 확률 ${dl.precipitation_probability_max[i] ?? 0}퍼센트`;
+      const where = cfg.place || "서울";
+      const context = `${where} 현재 ${WMO[c.weather_code] || ""}, 기온 ${Math.round(c.temperature_2m)}도 (체감 ${Math.round(c.apparent_temperature)}도), 바람 초속 ${(c.wind_speed_10m / 3.6).toFixed(1)}미터.\n` + [0, 1, 2].map(day).join("\n");
+      const eun = (w) => { const k = w.charCodeAt(w.length - 1) - 0xac00; return k >= 0 && k <= 11171 && k % 28 ? "은" : "는"; };
+      const plain = `지금 ${where}${eun(where)} ${WMO[c.weather_code] || ""}, ${Math.round(c.temperature_2m)}도예요. ` +
+        `오늘은 최고 ${Math.round(dl.temperature_2m_max[0])}도, 최저 ${Math.round(dl.temperature_2m_min[0])}도이고, 비 올 확률은 ${dl.precipitation_probability_max[0] ?? 0}퍼센트예요.` +
+        (dl.precipitation_probability_max[0] >= 50 ? " 우산 챙기세요." : "");
+      return { ok: true, source: "오픈메테오 날씨", context: context + (air ? "\n" + air.line : ""), plain: plain + (air ? " " + air.short : "") };
+    },
+    async air(lat, lon) {
+      try {
+        const r = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5&timezone=Asia%2FSeoul`);
+        if (!r.ok) return null;
+        const c = (await r.json()).current || {};
+        if (c.pm10 == null && c.pm2_5 == null) return null;
+        // 우리나라 환경부 기준 (㎍/㎥)
+        const g10 = (v) => v <= 30 ? "좋음" : v <= 80 ? "보통" : v <= 150 ? "나쁨" : "매우 나쁨";
+        const g25 = (v) => v <= 15 ? "좋음" : v <= 35 ? "보통" : v <= 75 ? "나쁨" : "매우 나쁨";
+        const a = c.pm10 != null ? `미세먼지 ${Math.round(c.pm10)}(${g10(c.pm10)})` : "", b = c.pm2_5 != null ? `초미세먼지 ${Math.round(c.pm2_5)}(${g25(c.pm2_5)})` : "";
+        const worst = [c.pm10 != null && g10(c.pm10), c.pm2_5 != null && g25(c.pm2_5)].filter(Boolean)
+          .sort((x, y) => ["좋음", "보통", "나쁨", "매우 나쁨"].indexOf(y) - ["좋음", "보통", "나쁨", "매우 나쁨"].indexOf(x))[0];
+        return { line: `지금 ${[a, b].filter(Boolean).join(", ")} (단위 마이크로그램, 환경부 기준).`,
+          short: `미세먼지는 ${worst}이에요.` + (/나쁨/.test(worst) ? " 나가실 땐 마스크 챙기세요." : "") };
+      } catch (_) { return null; }
+    },
+    async fx(query) {
+      const r = await fetch("https://open.er-api.com/v6/latest/USD");     // 하루 한 번 바뀌는 무료 환율 (ExchangeRate-API)
+      if (!r.ok) throw new Error("fx " + r.status);
+      const d = await r.json(), R = d.rates || {};
+      if (!R.KRW) return { ok: false, say: "환율 정보를 가져오지 못했어요." };
+      const won = (code, unit = 1) => R[code] ? Math.round(R.KRW / R[code] * unit * 10) / 10 : null;
+      const rows = [["미국 달러", "USD", 1], ["일본 엔", "JPY", 100], ["유로", "EUR", 1], ["중국 위안", "CNY", 1], ["영국 파운드", "GBP", 1], ["베트남 동", "VND", 1000], ["태국 바트", "THB", 1]]
+        .map(([n, c, u]) => won(c, u) != null ? `${n} ${u} = ${won(c, u).toLocaleString("ko-KR")}원` : "").filter(Boolean);
+      const when = d.time_last_update_utc ? new Date(d.time_last_update_utc).toLocaleDateString("ko-KR") : "";
+      return { ok: true, source: "익스체인지레이트 환율", context: `${when} 기준 환율\n${rows.join("\n")}`,
+        plain: `오늘 환율은 1달러에 ${Math.round(won("USD")).toLocaleString("ko-KR")}원, 100엔에 ${Math.round(won("JPY", 100)).toLocaleString("ko-KR")}원이에요.` };
+    },
+    async wiki(query) {
+      const u = "https://ko.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&generator=search&gsrlimit=1" +
+        "&prop=extracts&exintro=1&explaintext=1&exchars=700&gsrsearch=" + encodeURIComponent(query);
+      const r = await fetch(u); if (!r.ok) throw new Error("wiki " + r.status);
+      const pages = Object.values((await r.json()).query?.pages || {});
+      const pg = pages[0];
+      if (!pg || !pg.extract) return { ok: false, say: `"${query}"에 대한 내용을 위키백과에서 못 찾았어요.` };
+      const text = pg.extract.replace(/\s+/g, " ").trim();
+      return { ok: true, source: "위키백과", context: `${pg.title}: ${text}`, plain: `위키백과에 따르면, ${text.split(/(?<=[.다])\s/).slice(0, 2).join(" ")}` };
+    },
+    async news(query) {
+      if (!HAS_BODY) return this.newsGemini(query);
+      const s = await fetch(`/search?type=news&q=${encodeURIComponent(query || "")}`);
+      if (s.status === 429) return { ok: false, say: "다른 검색을 하는 중이에요. 잠시 뒤에 다시 물어봐 주세요." };
+      if (!s.ok) throw new Error("search " + s.status);
+      const { n } = await s.json();
+      for (let i = 0; i < 50; i++) {                                    // 최대 15초 기다림
+        await new Promise((ok) => setTimeout(ok, 300));
+        const r = await fetch(`/search_result?n=${n}`);
+        if (r.status !== 200) continue;
+        const { status, items } = await r.json();
+        if (status !== 200) return { ok: false, say: "뉴스를 가져오지 못했어요. 조금 있다가 다시 물어봐 주세요." };
+        const list = (items || []).slice(0, 6);
+        if (!list.length) return { ok: false, say: query ? `"${query}"에 대한 뉴스가 없어요.` : "뉴스를 찾지 못했어요." };
+        const day = (d) => { const t = new Date(d); return isNaN(t) ? "" : ` (${t.getMonth() + 1}월 ${t.getDate()}일)`; };
+        const context = list.map((it, k) => `${k + 1}. ${stripTags(it.t)}${day(it.d)}`).join("\n");
+        return { ok: true, source: "구글 뉴스", context, plain: `구글 뉴스를 보니, ${stripTags(list[0].t).replace(/\s-\s[^-]+$/, "")}${day(list[0].d) ? " 소식이 있어요." : "."}` };
+      }
+      return { ok: false, say: "검색이 오래 걸려서 그만뒀어요. 다시 물어봐 주세요." };
+    },
+    // 받침대 없이: Gemini의 구글 검색 기능 (무료 한도 안)으로 최신 정보 찾기
+    async grounded(ask) {
+      if (!cfg.key) return { err: "검색하려면 Gemini API 키가 필요해요." };
+      for (const model of [STT_MODEL, "gemini-flash-latest"]) {
+        try {
+          const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 20000);
+          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cfg.key)}`, {
+            method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal,
+            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: ask }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.2 } }),
+          }).finally(() => clearTimeout(t));
+          if (r.status === 429) return { err: "오늘 검색을 너무 많이 했어요. 조금 있다가 다시 물어봐 주세요." };
+          if (!r.ok) continue;
+          const j = await r.json();
+          return { text: ((j.candidates || [])[0]?.content?.parts || []).map((x) => x.text || "").join("").trim() };
+        } catch (_) { /* 다음 모델로 */ }
+      }
+      return { err: "지금은 찾아볼 수가 없어요. 조금 있다가 다시 물어봐 주세요." };
+    },
+    today() { const d = new Date(); return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`; },
+    async newsGemini(query, n = 5) {
+      const g = await this.grounded(`오늘은 ${this.today()}이야. 구글 검색으로 ${query ? `"${query}"에 관한` : "대한민국 오늘의 주요"} 최신 뉴스를 찾아서, ` +
+        `가장 최근 것 ${n}개를 한 줄에 하나씩 '제목 - 언론사 (월/일)' 형식으로만 써. 설명이나 다른 말은 쓰지 마. 못 찾으면 '없음'만 써.`);
+      if (g.err) return { ok: false, say: g.err };
+      const lines = g.text.split("\n").map((l) => l.replace(/^[\s\-*•\d.)]+/, "").replace(/\*\*/g, "").trim()).filter((l) => l && l !== "없음").slice(0, n);
+      if (!lines.length) return { ok: false, say: query ? `"${query}"에 대한 뉴스를 못 찾았어요.` : "뉴스를 찾지 못했어요." };
+      return { ok: true, source: "구글 검색", lines, context: lines.map((l, k) => `${k + 1}. ${l}`).join("\n"),
+        plain: `오늘 뉴스를 보니, ${lines[0].replace(/\s-\s[^-]+$/, "")} 소식이 있어요.` };
+    },
+    async webGemini(query) {
+      const g = await this.grounded(`오늘은 ${this.today()}이야. 구글 검색으로 "${query}"에 대한 최신 정보를 찾아서, 확인된 사실만 짧은 문장 5개 이하로 정리해. 날짜가 있으면 함께 써. 못 찾으면 '없음'만 써.`);
+      if (g.err) return { ok: false, say: g.err };
+      if (!g.text || /^없음/.test(g.text)) return { ok: false, say: `"${query}"에 대한 소식을 찾지 못했어요. 조금 다르게 물어봐 주시겠어요?` };
+      return { ok: true, source: "구글 검색", context: g.text.replace(/\*\*/g, ""), plain: g.text.replace(/\*\*/g, "").split("\n")[0] };
+    },
+  };
+  window.hyungs.Search = Search; window.hyungs.Vision = Vision; window.hyungs.respond = respond; window.hyungs.cfg = () => cfg; window.hyungs.goSleep = goSleep; window.hyungs.state = () => state; window.hyungs.Ear = Ear; window.hyungs.findWake = findWake; window.hyungs.speakTest = speak; window.hyungs.AIVoice = AIVoice; window.hyungs.Notes = Notes; window.hyungs.DayCount = DayCount; window.hyungs.systemPrompt = systemPrompt;
+
+  // ---------------- 가족 알림 (ntfy.sh, 무료) ----------------
+  const Family = {
+    async send(text, urgent) {
+      if (!cfg.ntfyTopic || !text) return false;
+      try {
+        const r = await fetch("https://ntfy.sh/", {
+          method: "POST",                                      // 본문만 보내서 사전 요청 없이 전송
+          body: JSON.stringify({
+            topic: cfg.ntfyTopic,
+            title: urgent ? `급한 알림 · ${cfg.name || "반려봇"}` : `${cfg.name || "반려봇"}가 전해요`,
+            message: text,
+            priority: urgent ? 5 : 3,
+            tags: urgent ? ["rotating_light"] : ["robot"],
+          }),
+        });
+        return r.ok;
+      } catch (e) { console.warn(e); return false; }
+    },
+  };
+  window.hyungs.Family = Family;
+
+  // ---------------- 화면 쓰다듬기 (터치센서 대신: 화면을 손가락으로 좌우로 쓸기) ----------------
+  let strokeX = null, strokeLen = 0, stroking = false, noClickUntil = 0;
+  stage.addEventListener("pointerdown", (e) => { if (e.target === $("gear")) return; strokeX = e.clientX; strokeLen = 0; });
+  stage.addEventListener("pointermove", (e) => {
+    if (strokeX == null) return;
+    strokeLen += Math.abs(e.clientX - strokeX); strokeX = e.clientX;
+    if (!stroking && strokeLen > 140) { stroking = true; onTouch({ state: "down" }); }
+  });
+  const strokeEnd = () => {
+    if (stroking) { stroking = false; noClickUntil = Date.now() + 500; onTouch({ state: "up" }); }
+    strokeX = null;
+  };
+  ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => stage.addEventListener(ev, strokeEnd));
+
+  // ---------------- 탭 ----------------
+  stage.addEventListener("click", (e) => {
+    if (e.target === $("gear")) return;
+    if (Date.now() < noClickUntil) return;                 // 쓰다듬은 직후의 톡은 무시
+    if (Frame.shown) { Frame.hide(); lastActive = Date.now(); return; }   // 액자 중 톡 = 형스 얼굴로
+    lastActive = Date.now();
+    keepAwake();   // 전체화면은 홈 화면 앱으로 실행할 때 자동
+    if (Photos.showing) { Photos.next(); return; }  // 사진 보는 중 톡 = 다음 사진
+    if (Music.playing) { Music.stop(); return; }   // 음악 중 톡 = 음악 끄기
+    if (state === "sleep") {
+      setMood("happy"); body("wake"); say("깼어요! 불렀어요?"); state = "react";
+      speak("깼어요! 불렀어요?").then(async () => {
+        const h = new Date().getHours();
+        if (h >= 5 && h < 11 && cfg.briefOn !== false && !Brief.doneToday()) await Brief.run();
+        if (h >= 5 && h < 11 && !Voices.playedToday("morning") && Voices.counts.morning) {
+          Voices.markToday("morning"); say(`${Inbox.who()} 아침 인사예요.`); await Voices.playKinds(["morning"]);
+        }
+        holdThenIdle(2500);
+      });
+      return;
+    }
+    if (Voices.playing) { Voices.stop(); toIdle(); return; }   // 목소리 재생 중 톡 = 멈추기
+    if (state === "listen") { if (Ear.pending) Ear.finish(); else if (GEar.active()) GEar.cut(); else try { rec && rec.stop(); } catch (_) {} return; }
+    if (rec && Ear.blocked && recMode !== "active") Ear.blocked = false;   // 톡 하면 다시 시도
+    if (state === "think") return;
+    startListening();
+  });
+
+  // ---------------- 설정 화면 (왼쪽 위 3초 누르기) ----------------
+  const gear = $("gear"), panel = $("settings"), msg = $("s-msg");
+  let gearTimer = null;
+  // 왼쪽 위를 3초 누르기 (손가락이 조금 움직여도 괜찮게: 크롬의 '당겨서 새로고침'·길게 누르기 메뉴를 막음)
+  gear.addEventListener("pointerdown", (e) => { e.preventDefault(); clearTimeout(gearTimer); gearTimer = setTimeout(openSettings, 3000); });
+  ["pointerup", "pointercancel"].forEach((ev) => gear.addEventListener(ev, () => clearTimeout(gearTimer)));
+  gear.addEventListener("contextmenu", (e) => e.preventDefault());
+  // 또는 왼쪽 위를 빠르게 5번 톡
+  let gearTaps = [];
+  gear.addEventListener("click", () => { const now = Date.now(); gearTaps = [...gearTaps.filter((t) => now - t < 2500), now]; if (gearTaps.length >= 5) { gearTaps = []; openSettings(); } });
+  // 또는 주소 끝에 #설정 (예: http://192.168.0.9/#설정)
+  const hashOpen = () => { if (/설정|settings/i.test(decodeURIComponent(location.hash))) { window.history.replaceState(null, "", location.pathname); setTimeout(openSettings, 300); } };
+  window.addEventListener("hashchange", hashOpen); hashOpen();
+
+  function openSettings() {
+    $("s-name").value = cfg.name; $("s-key").value = cfg.key;
+    $("s-model").value = cfg.model; $("s-persona").value = cfg.persona;
+    $("s-son").value = cfg.sonName || ""; $("s-enlist").value = cfg.enlistDate || ""; $("s-months").value = cfg.serviceMonths || 21;
+    showNotes();
+    fillVoices(); renderMusicRows(); renderPhotoRows(); renderVoiceRows(); $("s-photo-topic").value = cfg.photoTopic || "";
+    $("s-brief").checked = cfg.briefOn !== false; $("s-brief-news").checked = cfg.briefNews !== false;
+    $("s-rem-family").checked = !!cfg.remindFamily; renderReminderRows();
+    $("s-letter-sign").value = cfg.letterSign || "";
+    $("s-fb-project").value = cfg.fbProject || ""; $("s-fb-key").value = cfg.fbKey || ""; $("s-fam").value = cfg.famId || "";
+    $("s-frame").checked = cfg.frameOn !== false; $("s-frame-min").value = String(cfg.frameAfterMin || 3);
+    $("s-notify-name").value = cfg.notifyName; $("s-ntfy").value = cfg.ntfyTopic;
+    $("s-cam").checked = !!cfg.camOn; $("s-cam-flip").checked = !!cfg.camFlip; $("s-ear").value = cfg.earMode; $("s-ear-engine").value = cfg.earEngine || "auto"; $("s-mic-mode").value = cfg.micMode || "raw"; fillMics();
+    $("s-place").value = cfg.place; pendingGeo = {};
+    $("s-mvol").value = cfg.musicVol; $("s-mvol-v").textContent = Math.round(cfg.musicVol * 100) + "%";
+    $("s-pitch").value = cfg.pitch; $("s-rate").value = cfg.rate; showVoiceNums();
+    $("s-tts").value = cfg.tts === "phone" ? "phone" : "gemini"; $("s-gvoice").value = cfg.gvoice || "Leda";
+    $("s-gstyle").value = cfg.gstyle || DEFAULT_GSTYLE; $("s-gcute").value = cfg.gcute || 1.1; showTtsBox();
+    const pre = `${cfg.pitch},${cfg.rate}`;
+    if ([...$("s-voice-preset").options].some((o) => o.value === pre)) $("s-voice-preset").value = pre;
+    const recent = Music.log.filter((x) => Date.now() - x.t < 60 * 60 * 1000);
+    msg.textContent = recent.length ? `최근 1시간 음악 끊김 기록 ${recent.length}번: ` +
+      recent.slice(-6).map((x) => `${new Date(x.t).toTimeString().slice(0, 5)} ${x.what}`).join(", ") : "";
+    panel.hidden = false; showEarState();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  // 설정 화면: 지금 어떤 방법으로 듣는지 + 마이크 소리 크기(말할 때 막대가 길어지면 정상)
+  async function fillMics() {
+    const sel = $("s-mic"), list = await GEar.mics();
+    sel.innerHTML = '<option value="">기본 마이크</option>' +
+      list.filter((d) => d.deviceId && d.deviceId !== "default")
+          .map((d, i) => `<option value="${d.deviceId}">${(d.label || `마이크 ${i + 1}`).replace(/[<>&"]/g, "")}</option>`).join("");
+    sel.value = [...sel.options].some((o) => o.value === cfg.micId) ? cfg.micId : "";
+  }
+  // 마이크를 바꾸면 저장 전이라도 바로 다시 열어 막대로 확인할 수 있게
+  for (const id of ["s-mic", "s-mic-mode"]) $(id).addEventListener("change", async () => {
+    cfg.micId = $("s-mic").value; cfg.micMode = $("s-mic-mode").value;
+    if (GEar.active()) { await GEar.restart(); fillMics(); }
+  });
+  $("s-ear-engine").addEventListener("change", async () => {   // Gemini로 바꾸면 저장 전에도 막대로 확인 가능
+    cfg.earEngine = $("s-ear-engine").value; if (!cfg.key) cfg.key = $("s-key").value.trim();
+    if (GEar.active() && (await GEar.init())) fillMics();
+  });
+  function showEarState() {
+    if (panel.hidden) return;
+    const el = $("s-ear-state");
+    if (!GEar.active()) el.textContent = cfg.key || (cfg.earEngine || "auto") === "phone" ? "지금은 폰의 구글 음성 인식으로 듣고 있어요." : "Gemini로 들으려면 Gemini API 키가 필요해요.";
+    else if (!GEar.ready) el.textContent = GEar.err ? `Gemini로 들으려 했지만 문제가 있어요: ${GEar.err}` : "Gemini로 듣습니다. (마이크 준비 중)";
+    else {
+      const bars = Math.min(20, Math.round((GEar.level / GEar.thr()) * 5));
+      el.textContent = `Gemini로 듣고 있어요. 마이크 소리 ${"▮".repeat(bars)}${"▯".repeat(Math.max(0, 20 - bars))}` + (GEar.err ? ` · 최근 문제: ${GEar.err}` : "");
+    }
+    if (lastAskErr) el.textContent += ` · 최근 대화 오류: ${lastAskErr}`;
+    setTimeout(showEarState, 200);
+  }
+  $("s-close").onclick = () => { panel.hidden = true; if (Music.playing) Music.stop(); if (Voices.playing) Voices.stop(); };
+  $("s-save").onclick = () => {
+    cfg = { name: $("s-name").value.trim(), key: $("s-key").value.trim(), model: $("s-model").value, persona: $("s-persona").value,
+            pitch: +$("s-pitch").value, rate: +$("s-rate").value, voiceName: $("s-voice").value,
+            sonName: $("s-son").value.trim(), enlistDate: $("s-enlist").value, serviceMonths: +$("s-months").value || 21,
+            tts: $("s-tts").value, gvoice: $("s-gvoice").value, gstyle: $("s-gstyle").value.trim() || DEFAULT_GSTYLE, gcute: +$("s-gcute").value,
+            musicVol: +$("s-mvol").value, notifyName: $("s-notify-name").value.trim(),
+            ntfyTopic: $("s-ntfy").value.trim().replace(/^https?:\/\/ntfy\.sh\//, ""),
+            place: $("s-place").value.trim(), lat: pendingGeo.lat ?? cfg.lat, lon: pendingGeo.lon ?? cfg.lon,
+            camOn: $("s-cam").checked, camFlip: $("s-cam-flip").checked, earMode: $("s-ear").value, earEngine: $("s-ear-engine").value,
+            micId: $("s-mic").value, micMode: $("s-mic-mode").value,
+            briefOn: $("s-brief").checked, briefNews: $("s-brief-news").checked, remindFamily: $("s-rem-family").checked,
+            letterSign: $("s-letter-sign").value.trim(),
+            fbProject: $("s-fb-project").value.trim(), fbKey: $("s-fb-key").value.trim(), famId: $("s-fam").value.trim(), frameOn: $("s-frame").checked, frameAfterMin: +$("s-frame-min").value,
+            photoTopic: $("s-photo-topic").value.trim().replace(/^https?:\/\/ntfy\.sh\//, "") };
+    if (cfg.earEngine === "phone") store.set("earAutoGemini", false);
+    if (GEar.active()) GEar.restart();
+    Inbox.start(); Vault.start();
+    if (cfg.earMode === "face" && !cfg.camOn) { cfg.camOn = true; $("s-cam").checked = true; }
+    if (cfg.camOn) Vision.start(); else Vision.stop();
+    setHint(); Ear.kick();
+    pendingGeo = {};
+    store.set("cfg", cfg);
+    Notes.save($("s-notes").value.split("\n")); showNotes();
+    pickVoice();
+    const eng = $("s-model").selectedOptions[0].textContent;
+    msg.textContent = cfg.key ? `저장했습니다. ${eng}로 대화합니다.` : "저장했습니다. API 키가 없어 인터넷 없이 간단한 대화만 합니다.";
+  };
+  // ---- 목소리 고르기 ----
+  function fillVoices() {
+    const sel = $("s-voice");
+    const ko = ("speechSynthesis" in window) ? speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith("ko")) : [];
+    sel.innerHTML = '<option value="">자동</option>' + ko.map((v) => `<option>${v.name.replace(/</g, "&lt;")}</option>`).join("");
+    sel.value = ko.some((v) => v.name === cfg.voiceName) ? cfg.voiceName : "";
+  }
+  function showVoiceNums() {
+    $("s-pitch-v").textContent = (+$("s-pitch").value).toFixed(2);
+    $("s-rate-v").textContent = (+$("s-rate").value).toFixed(2);
+  }
+  $("s-voice-preset").onchange = () => {
+    const [p, r] = $("s-voice-preset").value.split(",");
+    $("s-pitch").value = p; $("s-rate").value = r; showVoiceNums();
+  };
+  $("s-pitch").oninput = showVoiceNums;
+  $("s-rate").oninput = showVoiceNums;
+  function showTtsBox() {
+    const g = $("s-tts").value === "gemini";
+    $("s-gem-box").style.display = g ? "grid" : "none";
+    $("s-gcute-v").textContent = (+$("s-gcute").value).toFixed(2);
+  }
+  function showNotes() {
+    const l = Notes.list();
+    $("s-notes").value = l.join("\n");
+    $("s-notes-n").textContent = `${l.length}/${NOTES_MAX}줄` + (Notes.pending.length ? ` · 아직 정리 안 한 대화 ${Notes.pending.length}개` : "");
+  }
+  $("s-notes-now").onclick = async () => {
+    if (!Notes.pending.length) { msg.textContent = "새로 정리할 대화가 없어요."; return; }
+    Notes.save($("s-notes").value.split("\n"));          // 직접 고친 내용 먼저 반영
+    msg.textContent = "대화를 정리하는 중…";
+    const ok = await Notes.digest(true); showNotes();
+    msg.textContent = ok ? "수첩에 정리해 적었어요." : `정리하지 못했어요 (${Notes.lastError || "API 키 확인"}).`;
+  };
+  $("s-notes-clear").onclick = () => {
+    if ($("s-notes-clear").dataset.sure !== "1") { $("s-notes-clear").dataset.sure = "1"; $("s-notes-clear").textContent = "정말 비울까요? 한 번 더 누르세요"; return; }
+    Notes.save([]); Notes.pending = []; store.set("notesPending", []); showNotes();
+    $("s-notes-clear").dataset.sure = ""; $("s-notes-clear").textContent = "수첩 비우기"; msg.textContent = "수첩을 비웠어요.";
+  };
+  $("s-tts").onchange = showTtsBox; $("s-gcute").oninput = showTtsBox;
+  $("s-voice-try").onclick = async () => {
+    const keys = ["pitch", "rate", "voiceName", "tts", "gvoice", "gstyle", "gcute", "key"];
+    const keep = Object.fromEntries(keys.map((k) => [k, cfg[k]]));
+    Object.assign(cfg, { pitch: +$("s-pitch").value, rate: +$("s-rate").value, voiceName: $("s-voice").value,
+      tts: $("s-tts").value, gvoice: $("s-gvoice").value, gstyle: $("s-gstyle").value.trim() || DEFAULT_GSTYLE,
+      gcute: +$("s-gcute").value, key: $("s-key").value.trim() || cfg.key });
+    pickVoice(); AIVoice.offUntil = 0;
+    msg.textContent = cfg.tts === "gemini" ? "AI 목소리를 만드는 중…" : "";
+    await speak(`안녕하세요, 저는 ${$("s-name").value.trim() || "반려봇"}이에요. 오늘 하루는 어떠셨어요?`);
+    if (cfg.tts === "gemini") msg.textContent = AIVoice.lastError ? `AI 목소리를 못 썼어요(${AIVoice.lastError}). 폰 음성으로 들려드렸어요.` : "AI 목소리로 들려드렸어요. 마음에 들면 저장을 누르세요.";
+    Object.assign(cfg, keep); pickVoice();     // 저장을 눌러야 적용
+  };
+
+  // ---- 음악 설정 ----
+  let musicPickMood = null;
+  async function renderMusicRows() {
+    const box = $("s-music");
+    let counts = {};
+    try { (await MusicDB.all()).forEach((t) => (counts[t.mood] = (counts[t.mood] || 0) + 1)); } catch (_) {}
+    box.innerHTML = Object.entries(MUSIC_MOODS).map(([k, m]) => `
+      <div class="row" style="align-items:center">
+        <span style="flex:1 1 160px;color:var(--text)">${m.label} <span style="color:var(--hint)">· ${counts[k] ? counts[k] + "곡" : "형스 연주"}</span></span>
+        <button type="button" class="ghost" data-act="add" data-mood="${k}">노래 넣기</button>
+        <button type="button" class="ghost" data-act="try" data-mood="${k}">들어보기</button>
+        ${counts[k] ? `<button type="button" class="ghost" data-act="clear" data-mood="${k}">비우기</button>` : ""}
+      </div>`).join("");
+  }
+  $("s-music").addEventListener("click", async (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    const mood = b.dataset.mood;
+    if (b.dataset.act === "add") { musicPickMood = mood; $("s-music-file").click(); }
+    if (b.dataset.act === "try") {
+      if (Music.playing && Music.mood === mood) { Music.stop(true); b.textContent = "들어보기"; return; }
+      cfg.musicVol = +$("s-mvol").value;
+      await Music.play(mood); b.textContent = "멈추기"; msg.textContent = "설정을 닫으면 음악도 멈춰요.";
+    }
+    if (b.dataset.act === "clear") { await MusicDB.clear(mood); msg.textContent = `${MUSIC_MOODS[mood].label}의 노래를 비웠습니다.`; renderMusicRows(); }
+  });
+  $("s-music-file").onchange = async () => {
+    const files = [...$("s-music-file").files];
+    if (!files.length || !musicPickMood) return;
+    msg.textContent = "노래를 넣는 중…";
+    try {
+      for (const f of files) await MusicDB.add(musicPickMood, f);
+      msg.textContent = `${MUSIC_MOODS[musicPickMood].label}에 ${files.length}곡을 넣었습니다.`;
+    } catch (e) { msg.textContent = "노래를 넣지 못했습니다. 폰 저장 공간을 확인해 주세요."; }
+    $("s-music-file").value = ""; renderMusicRows();
+  };
+  // ---- 사진 보관함 설정 ----
+  $("s-fam-new").onclick = () => {
+    if ($("s-fam").value.trim() && $("s-fam-new").dataset.sure !== "1") { $("s-fam-new").dataset.sure = "1"; $("s-fam-new").textContent = "정말 새로 만들기 (예전 보관함과 끊김)"; return; }
+    $("s-fam").value = Vault.newFamId(); $("s-fam-new").dataset.sure = ""; $("s-fam-new").textContent = "가족 코드 만들기";
+    msg.textContent = "가족 코드를 만들었습니다. 저장을 누르세요.";
+  };
+  $("s-send-link").onclick = async () => {
+    if (!Vault.on()) { msg.textContent = "프로젝트 ID, API 키, 가족 코드를 넣고 저장한 뒤에 눌러 주세요."; return; }
+    const link = Vault.sendLink();
+    try { await navigator.clipboard.writeText(link); msg.textContent = "링크를 복사했습니다. 카톡으로 아들에게만 보내 주세요."; }
+    catch (_) { msg.textContent = link; }
+  };
+  $("s-vault-restore").onclick = async () => {
+    if (!Vault.on()) { msg.textContent = "먼저 보관함 설정을 저장해 주세요."; return; }
+    if ($("s-vault-restore").dataset.sure !== "1") { $("s-vault-restore").dataset.sure = "1"; $("s-vault-restore").textContent = "정말 다시 받기 (이미 있는 것도 한 번 더 받음)"; return; }
+    $("s-vault-restore").dataset.sure = ""; $("s-vault-restore").textContent = "보관함에서 모두 다시 받기";
+    store.set("vaultLast", 0); msg.textContent = "보관함에서 받는 중…";
+    const n = await Vault.poll(true); renderPhotoRows(); renderVoiceRows();
+    msg.textContent = `보관함에서 ${n}개를 받았습니다.`;
+  };
+  (function showVault() { if (!panel.hidden) $("s-vault-state").textContent = Vault.on() ? `보관함: ${Vault.status}` : ""; setTimeout(showVault, 1000); })();
+
+  // ---- 알림·브리핑·편지 설정 ----
+  function renderReminderRows() {
+    const l = Reminders.list(), esc = (x) => String(x).replace(/[<>&"]/g, "");
+    $("s-rem-list").innerHTML = l.length ? l.map((x) => `
+      <div class="row" style="align-items:center"><span style="flex:1 1 180px;color:var(--text)">${esc(Reminders.describe(x))}</span>
+      <button type="button" class="ghost" data-id="${x.id}">지우기</button></div>`).join("") : '<p class="note">맞춰 둔 알림이 없습니다.</p>';
+  }
+  $("s-rem-list").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; Reminders.remove(+b.dataset.id); renderReminderRows(); });
+  $("s-rem-add").onclick = () => {
+    const it = Reminders.add({ time: $("s-rem-time").value, text: $("s-rem-text").value, daily: $("s-rem-daily").checked });
+    msg.textContent = it ? `알림을 넣었습니다: ${Reminders.describe(it)}` : "시간과 내용을 넣어 주세요. (매일이 아니면 지금 이후 시간)";
+    if (it) { $("s-rem-text").value = ""; renderReminderRows(); }
+  };
+  $("s-brief-test").onclick = async () => {
+    cfg.briefNews = $("s-brief-news").checked; panel.hidden = true; await Brief.run(true); toIdle();
+  };
+  $("s-letter-past").onclick = () => {
+    const ls = store.get("letters", []);
+    if (!ls.length) { msg.textContent = "아직 저장된 편지가 없습니다."; return; }
+    panel.hidden = true;
+    Letter.close(); $("letter").hidden = false;
+    $("letter-title").textContent = `지난 편지 (${ls.length}통 중 가장 최근)`;
+    $("letter-guide").textContent = ls.map((x, i) => `${i + 1}. ${new Date(x.t).toLocaleDateString("ko-KR")}`).slice(0, 10).join("  ·  ");
+    $("letter-body").value = ls[0].text; $("letter-body").readOnly = false;
+    $("letter-write").hidden = true; $("letter-done").hidden = false; $("letter-send").hidden = !cfg.photoTopic;
+  };
+  // 편지 화면 버튼
+  const lmsg = (t) => { $("letter-msg").textContent = t; };
+  $("letter-finish").onclick = () => Letter.finish();
+  $("letter-undo").onclick = () => { Letter.parts.pop(); Letter.show(); };
+  $("letter-cancel").onclick = () => { Letter.close(); toIdle(); };
+  $("letter-copy").onclick = async () => lmsg((await Letter.copy()) ? "복사했어요. 공군 인터넷 편지나 카톡에 붙여 넣으세요." : "복사하지 못했어요. 글을 길게 눌러 복사해 주세요.");
+  $("letter-share").onclick = async () => { await Letter.share(); };
+  $("letter-send").onclick = async () => lmsg((await Letter.send()) ? `${Letter.who()} 폰(ntfy)으로 보냈어요.` : "보내지 못했어요. 인터넷과 사진 받는 주소를 확인해 주세요.");
+  $("letter-read").onclick = async () => { const t = Letter.current(); if (t) { setMood("love"); await speak(t); } };
+  $("letter-close").onclick = () => { Letter.close(); lmsg(""); toIdle(); };
+  $("alert-ok").onclick = () => Reminders.ack(false);
+
+  // ---- 아들 목소리 설정 ----
+  let voicePickKind = null;
+  async function renderVoiceRows() {
+    const c = await Voices.refresh();
+    $("s-voices").innerHTML = [...Object.entries(VOICE_KINDS), ["msg", "받은 음성 메시지"]].map(([k, label]) => `
+      <div class="row" style="align-items:center">
+        <span style="flex:1 1 160px;color:var(--text)">${label} <span style="color:var(--hint)">· ${c[k] || 0}개</span></span>
+        ${k !== "msg" ? `<button type="button" class="ghost" data-act="add" data-kind="${k}">넣기</button>` : ""}
+        ${c[k] ? `<button type="button" class="ghost" data-act="try" data-kind="${k}">들어보기</button>
+                  <button type="button" class="ghost" data-act="clear" data-kind="${k}">비우기</button>` : ""}
+      </div>`).join("");
+  }
+  $("s-voices").addEventListener("click", async (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    const k = b.dataset.kind;
+    if (b.dataset.act === "add") { voicePickKind = k; $("s-voice-file").click(); }
+    if (b.dataset.act === "try") { if (Voices.playing) { Voices.stop(); return; } const keep = state; await Voices.playKinds([k]); state = keep === "voice" ? "idle" : keep; }
+    if (b.dataset.act === "clear") {
+      if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 비우기"; return; }
+      await Voices.clear(k); renderVoiceRows();
+    }
+  });
+  $("s-voice-file").onchange = async () => {
+    const files = [...$("s-voice-file").files];
+    if (!files.length || !voicePickKind) return;
+    try { for (const f of files) await Voices.add(voicePickKind, f); msg.textContent = `${VOICE_KINDS[voicePickKind]}에 ${files.length}개를 넣었습니다.`; }
+    catch (e) { msg.textContent = "녹음 파일을 넣지 못했습니다. 폰 저장 공간을 확인해 주세요."; }
+    $("s-voice-file").value = ""; renderVoiceRows();
+  };
+
+  // ---- 사진 설정 ----
+  async function renderPhotoRows() {
+    const list = await Photos.refresh(), esc = (x) => x.replace(/[<>&"]/g, "");
+    $("s-photos").innerHTML = list.length ? list.map((a) => `
+      <div class="row" style="align-items:center">
+        <span style="flex:1 1 160px;color:var(--text)">${esc(a.name)} <span style="color:var(--hint)">· ${a.n}장</span></span>
+        <button type="button" class="ghost" data-act="view" data-album="${esc(a.name)}">보기</button>
+        <button type="button" class="ghost" data-act="clear" data-album="${esc(a.name)}">비우기</button>
+      </div>`).join("") : '<p class="note">아직 넣은 사진이 없습니다.</p>';
+  }
+  $("s-photo-topic-new").onclick = () => {
+    const a = new Uint8Array(12); crypto.getRandomValues(a);
+    $("s-photo-topic").value = "hyungs-photo-" + [...a].map((x) => "abcdefghijkmnpqrstuvwxyz23456789"[x % 32]).join("");
+    msg.textContent = "사진 받는 주소를 만들었습니다. 저장을 누르고 이 주소를 아들에게 알려 주세요.";
+  };
+  $("s-photo-topic-test").onclick = async () => {
+    const t = $("s-photo-topic").value.trim();
+    if (!t) { msg.textContent = "먼저 사진 받는 주소를 만들거나 적어 주세요."; return; }
+    if (t !== (cfg.photoTopic || "")) { msg.textContent = "주소를 저장한 뒤에 시험해 주세요."; return; }
+    try { msg.textContent = (await Inbox.test(t)) ? "시험 사진을 보냈습니다. 설정을 닫으면 형스가 알려 줄 거예요." : "보내지 못했습니다. 인터넷 연결을 확인해 주세요."; }
+    catch (e) { msg.textContent = "보내지 못했습니다: " + e.message; }
+  };
+  (function showInbox() { if (!panel.hidden) $("s-photo-topic-state").textContent = cfg.photoTopic ? `받기 상태: ${Inbox.status}` : ""; setTimeout(showInbox, 1000); })();
+  $("s-photo-add").onclick = () => $("s-photo-file").click();
+  $("s-photo-file").onchange = async () => {
+    const files = [...$("s-photo-file").files];
+    const album = $("s-album").value.trim().replace(/[^가-힣a-zA-Z0-9 ]/g, "") || "가족";
+    if (!files.length) return;
+    msg.textContent = `사진 ${files.length}장을 넣는 중…`;
+    try { await Photos.add(album, files); msg.textContent = `'${album}' 앨범에 사진 ${files.length}장을 넣었습니다.`; }
+    catch (e) { msg.textContent = "사진을 넣지 못했습니다. 폰 저장 공간을 확인해 주세요."; }
+    $("s-photo-file").value = ""; renderPhotoRows();
+  };
+  $("s-photos").addEventListener("click", async (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    const album = b.dataset.album;
+    if (b.dataset.act === "view") { panel.hidden = true; await Photos.show(album); toIdle(); }
+    if (b.dataset.act === "clear") {
+      if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 비우기"; return; }
+      await Photos.clear(album); msg.textContent = `'${album}' 앨범을 비웠습니다.`; renderPhotoRows();
+    }
+  });
+  $("s-mvol").oninput = () => { $("s-mvol-v").textContent = Math.round($("s-mvol").value * 100) + "%"; cfg.musicVol = +$("s-mvol").value; Music.duck(false); };
+
+  $("s-ntfy-new").onclick = () => {
+    const a = new Uint8Array(12); crypto.getRandomValues(a);
+    $("s-ntfy").value = "hyungs-" + [...a].map((x) => "abcdefghijkmnpqrstuvwxyz23456789"[x % 32]).join("");
+    msg.textContent = "새 알림 주소를 만들었습니다. 저장을 누르고, 받는 폰의 ntfy 앱에서 이 주소를 구독하세요.";
+  };
+  $("s-ntfy-test").onclick = async () => {
+    const keep = cfg.ntfyTopic; cfg.ntfyTopic = $("s-ntfy").value.trim();
+    const ok = await Family.send("시험 알림이에요. 이 알림이 보이면 가족 알림이 잘 연결된 거예요.", false);
+    cfg.ntfyTopic = keep;
+    msg.textContent = ok ? "시험 알림을 보냈습니다. 받는 폰에 알림이 왔는지 확인해 주세요." : "보내지 못했습니다. 알림 주소와 인터넷 연결을 확인해 주세요.";
+  };
+
+  let pendingGeo = {};
+  $("s-place-find").onclick = async () => {
+    const name = $("s-place").value.trim();
+    if (!name) { msg.textContent = "사는 동네를 먼저 적어 주세요."; return; }
+    const last = name.split(/\s+/).pop();
+    try {
+      for (const q of [name, last]) {
+        const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=ko`);
+        const d = await r.json();
+        const hit = (d.results || []).find((x) => x.country_code === "KR") || (d.results || [])[0];
+        if (hit) {
+          pendingGeo = { lat: +hit.latitude.toFixed(3), lon: +hit.longitude.toFixed(3) };
+          msg.textContent = `찾았습니다: ${[hit.admin1, hit.admin2, hit.name].filter(Boolean).join(" ")} (${pendingGeo.lat}, ${pendingGeo.lon}). 저장을 눌러 주세요.`;
+          return;
+        }
+      }
+      msg.textContent = "위치를 못 찾았습니다. '강서구'처럼 구 이름만 넣어 보세요. 못 찾으면 서울 기준으로 알려 드려요.";
+    } catch (e) { msg.textContent = "위치를 찾지 못했습니다. 인터넷 연결을 확인해 주세요."; }
+  };
+  $("s-search-test").onclick = async () => {
+    msg.textContent = "검색 중…";
+    const w = await Search.run("weather", "");
+    const n = await Search.run("news", "");
+    const k = await Search.run("encyc", "강서구");
+    const ok = (x) => x.ok ? "됨" : x.say;
+    msg.textContent = `날씨: ${ok(w)}  /  뉴스: ${n.ok ? "됨 (" + n.context.split("\n")[0].slice(3, 40) + "…)" : n.say}  /  위키백과: ${ok(k)}`;
+  };
+
+  $("s-clear").onclick = () => { history = []; store.set("history", history); msg.textContent = "대화 기록을 지웠습니다."; };
+  $("s-sound").onclick = async () => {
+    if (!("speechSynthesis" in window)) { msg.textContent = "이 브라우저는 음성 출력을 지원하지 않습니다."; return; }
+    pickVoice();
+    const all = speechSynthesis.getVoices();
+    const ko = all.filter((v) => v.lang && v.lang.toLowerCase().startsWith("ko"));
+    lastSpeakError = "";
+    msg.textContent = `음성 ${all.length}개 중 한국어 ${ko.length}개` + (koVoice ? ` (사용: ${koVoice.name})` : "") + ". 재생 중…";
+    const t0 = Date.now();
+    await speak("안녕하세요. 소리가 잘 들리나요?");
+    if (lastSpeakError) msg.textContent += ` 실패: ${lastSpeakError}`;
+    else if (Date.now() - t0 < 400) msg.textContent += " 바로 끝났습니다. 음성 엔진이 응답하지 않습니다.";
+    else msg.textContent += " 재생 완료. 안 들렸다면 미디어 볼륨을 올려 주세요.";
+  };
+  if (!HAS_BODY) $("s-test").style.display = "none";
+  $("s-test").onclick = async () => {
+    msg.textContent = "끄덕 → 좌우 → 두리번 순서로 움직입니다.";
+    for (const m of ["nod", "shake", "look_around", "center"]) { body(m); await new Promise((r) => setTimeout(r, 2200)); }
+    msg.textContent = bodyDot.classList.contains("on") ? "받침대 동작 시험을 마쳤습니다." : "받침대와 연결되지 않았습니다. ESP32 전원과 Wi-Fi를 확인해 주세요.";
+  };
+
+  // ---------------- 시작 ----------------
+  connectBody();
+  if (cfg.camOn) setTimeout(() => Vision.start(), 1500);
+  setTimeout(blink, 2500);
+  setTimeout(lookAround, 5000);
+  if (isNight()) goSleep();
+  setHint(); Ear.kick(1500); Inbox.start(); Vault.start();
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Vault.poll(); });
+  if (!store.get("cfg", null)) openSettings();     // 처음 켜면 설정부터
+})();
+  // 앱으로 설치(홈 화면) + 인터넷이 잠깐 끊겨도 화면이 열리게
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
