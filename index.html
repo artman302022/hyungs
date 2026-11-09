@@ -86,6 +86,14 @@
   #letter button{flex:1 1 30%;font-weight:700;font-size:17px;font-family:inherit;border-radius:12px;padding:14px 10px;border:1px solid var(--line);background:var(--panel);color:var(--text)}
   #letter button.main{background:var(--accent);color:#0b1018;border:0}
   #frame{position:fixed;inset:0;z-index:15;background:#000}
+  #mirror{position:fixed;inset:0;z-index:34;background:#000;display:flex;flex-direction:column}
+  #mirror[hidden]{display:none}
+  #mirror-video{flex:1;min-height:0;width:100%;object-fit:cover;transform:scaleX(-1)}
+  #mirror-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+  #mirror-msg{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top,0px));text-align:center;color:#fff;font-size:18px;font-weight:700;text-shadow:0 1px 4px #000}
+  #mirror .row{display:flex;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom,0px));background:#000}
+  #mirror button{flex:1;font-weight:700;font-size:19px;font-family:inherit;border-radius:14px;padding:16px 8px;border:0;background:#2a3344;color:#fff}
+  #mirror button.main{background:var(--accent);color:#0b1018}
   #frame-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 1.2s}
   #frame-img.in{opacity:1}
   #frame-info{position:absolute;left:0;right:0;bottom:0;padding:18px 20px calc(18px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,#000c);color:#fff}
@@ -133,6 +141,8 @@
   <div id="frame" hidden><img id="frame-img" alt=""><div id="frame-info"><div id="frame-time"></div><div id="frame-date"></div><div id="frame-dday"></div><div id="frame-note"></div></div></div>
 </div>
 <div id="alert" hidden role="alertdialog"><div id="alert-time"></div><div id="alert-text"></div><button id="alert-ok" type="button">확인했어요</button></div>
+<div id="mirror" hidden><video id="mirror-video" playsinline muted autoplay></video><div id="mirror-flash"></div><div id="mirror-msg"></div>
+  <div class="row"><button id="mirror-shot" class="main" type="button">📸 찰칵</button><button id="mirror-turn" type="button">🔄 앞/뒤</button><button id="mirror-close" type="button">닫기</button></div></div>
 <div id="letter" hidden>
   <h2 id="letter-title">편지</h2>
   <p id="letter-guide"></p>
@@ -393,7 +403,7 @@
   const FORMAT_RULES = `
 [응답 형식]
 반드시 아래 JSON 객체 하나만 출력해. 앞뒤에 다른 글자나 마크다운을 붙이지 마.
-{"text": "소리 내어 읽을 말", "emotion": "idle|happy|love|listen|sad|sleep", "motion": "none|nod|tilt|shake|look_around", "music": "none|calm|bright|comfort|sleep|morning|stop", "photos": "", "voice": "", "reminder": null, "reminder_cancel": [], "letter": "", "brief": false, "notify": "", "urgent": false, "search": "", "search_type": "none", "remember": "", "forget": []}
+{"text": "소리 내어 읽을 말", "emotion": "idle|happy|love|listen|sad|sleep", "motion": "none|nod|tilt|shake|look_around", "music": "none|calm|bright|comfort|sleep|morning|stop", "photos": "", "voice": "", "reminder": null, "reminder_cancel": [], "letter": "", "brief": false, "mirror": false, "notify": "", "urgent": false, "search": "", "search_type": "none", "remember": "", "forget": []}
 - text는 음성으로 읽히니 이모지, 괄호, 특수기호, 영어 약어를 쓰지 마.
 - emotion은 네 말투와 어울리는 표정, motion은 고개 동작이야.
 - music: 사용자가 음악이나 노래를 틀어 달라고 하거나, 네가 권한 음악을 듣겠다고 하면 대화 분위기에 맞게 골라.
@@ -407,6 +417,7 @@
 - reminder_cancel: 사용자가 알림을 지워 달라고 하면 [알림] 목록에서 그 번호들을 넣어. 예: [2]. 평소엔 빈 배열. 무슨 알림이 있는지 물으면 [알림] 목록을 보고 말해 줘.
 - letter: 사용자가 아들에게 편지를 쓰고 싶다고 하면 "start"를 넣고, text는 "좋아요. 하고 싶은 말을 천천히 해 주세요. 제가 받아 적을게요."처럼 짧게. 그 밖에는 빈 문자열.
 - brief: 사용자가 오늘 소식·브리핑·아침 뉴스를 한꺼번에 알려 달라고 하면 true, text는 "오늘 소식 알려 드릴게요." 정도. 그 밖에는 false.
+- mirror: 사용자가 거울을 보여 달라거나, 카메라로 자기 얼굴·모습을 보고 싶다거나, 사진(셀카)을 찍어 달라고 하면 true, text는 "거울 보여 드릴게요." 정도. 그 밖에는 false.
 - notify: 가족 알림. 평소에는 항상 빈 문자열이야.
   사용자가 가족에게 전해 달라고 하면, 먼저 보낼 문장을 소리 내어 말해 주고 이대로 보내도 되는지 물어봐. 이때 notify는 비워 둬.
   바로 앞에서 네가 물어본 내용에 사용자가 보내라고 대답했을 때만 notify에 그 문장을 넣어. 사용자가 고치라고 하면 고친 문장으로 다시 물어봐.
@@ -519,7 +530,7 @@
       Voices.playKinds(["night"]).then(goSleep);
       return;
     }
-    if (state === "idle" && !Letter.on && !Reminders.active &&
+    if (state === "idle" && !Letter.on && !Reminders.active && !Mirror.on &&
         (isNight() || (Date.now() - lastActive > IDLE_SLEEP_MS && !Frame.enabled()))) { Frame.hide(); goSleep(); }
   }, 30 * 1000);
 
@@ -775,7 +786,7 @@
     return `${persona.trim()}\n\n${nowLine()}\n${place}\n${fam}\n${cam}\n${Photos.prompt()}\n${Voices.prompt()}\n${Reminders.prompt()}\n${Notes.prompt()}\n${FORMAT_RULES}`;
   }
   function parseReply(raw) {
-    let reminder = null, reminder_cancel = [], letter = "", brief = false, voice = "", photos = "", text = (raw || "").trim(), emotion = "idle", motion = "none", music = "none", notify = "", urgent = false, search = "", search_type = "none", remember = "", forget = [];
+    let reminder = null, reminder_cancel = [], letter = "", brief = false, mirror = false, voice = "", photos = "", text = (raw || "").trim(), emotion = "idle", motion = "none", music = "none", notify = "", urgent = false, search = "", search_type = "none", remember = "", forget = [];
     const m = text.match(/\{[\s\S]*\}/);
     if (m) {
       try {
@@ -786,7 +797,7 @@
         voice = d.voice === "play" || d.voice === "msg" ? d.voice : "";
         if (d.reminder && typeof d.reminder === "object" && d.reminder.time && d.reminder.text) reminder = d.reminder;
         reminder_cancel = Array.isArray(d.reminder_cancel) ? d.reminder_cancel.map(Number).filter((x) => Number.isInteger(x) && x > 0) : [];
-        letter = d.letter === "start" ? "start" : ""; brief = d.brief === true;
+        letter = d.letter === "start" ? "start" : ""; brief = d.brief === true; mirror = d.mirror === true;
         notify = typeof d.notify === "string" ? d.notify.trim() : ""; urgent = d.urgent === true;
         search = typeof d.search === "string" ? d.search.trim() : ""; search_type = d.search_type || "none";
         remember = typeof d.remember === "string" ? d.remember.trim().slice(0, 80) : "";
@@ -810,7 +821,7 @@
     if (search_type === "webkr") search_type = "web";
     if (!["weather", "news", "local", "encyc", "web", "fx"].includes(search_type)) search_type = "none";
     if (search_type === "none") search = "";
-    return { reminder, reminder_cancel, letter, brief, text, emotion, motion, music, photos, voice, notify, urgent, search, search_type, remember, forget };
+    return { reminder, reminder_cancel, letter, brief, mirror, text, emotion, motion, music, photos, voice, notify, urgent, search, search_type, remember, forget };
   }
   function trimmedHistory() {
     let h = history.slice(-HISTORY_MAX);
@@ -844,6 +855,7 @@
     if (/환율|달러|엔화|유로/.test(s)) return { ...R("잠깐 환율을 볼게요.", "listen", "tilt"), search: "", search_type: "fx" };
     if (/뉴스|소식|무슨일|별일/.test(s)) return { ...R("잠깐 뉴스를 볼게요.", "listen", "tilt"), search: "", search_type: "news" };
     if (/편지/.test(s) && /쓰|쓸|적/.test(s)) return { ...R("좋아요. 하고 싶은 말을 천천히 해 주세요. 제가 받아 적을게요.", "love", "nod"), letter: "start" };
+    if (MIRROR_RE.test(s)) return { ...R("거울 보여 드릴게요.", "happy", "nod"), mirror: true };
     if (/브리핑|오늘소식|아침뉴스/.test(s)) return { ...R("오늘 소식 알려 드릴게요.", "happy", "nod"), brief: true };
     if (/알림|알려줘|깨워/.test(s) && /\d/.test(s)) return R("알림은 인터넷이 될 때 맞출 수 있어요. 설정 화면의 알림 칸에서 직접 넣으실 수도 있어요.", "sad", "tilt");
     if (/목소리|음성메시지|음성 메시지|녹음/.test(s) && !/설정/.test(s)) {
@@ -1023,6 +1035,8 @@
   async function preRespond(text) {
     if (Reminders.active && ACK_RE.test(text.replace(/\s/g, ""))) { await Reminders.ack(true); return true; }
     if (Letter.on) { await Letter.hear(text); return true; }
+    if (Mirror.on) { await Mirror.hear(text); return true; }
+    if (MIRROR_RE.test(text.replace(/\s/g, ""))) { await Mirror.open(); return true; }
     return false;
   }
   async function respond(userText) {
@@ -1067,6 +1081,7 @@
     }
     if (reply.brief) { await Brief.run(true); }
     if (reply.letter === "start") { Letter.start(); return; }
+    if (reply.mirror) { await Mirror.open(); return; }
     if (reply.photos) await Photos.show(reply.photos);
     if (reply.voice) {
       const ok = await Voices.playKinds(reply.voice === "msg" ? ["msg"] : ["any", "morning", "night", "msg"]);
@@ -1193,7 +1208,7 @@
     on() { return cfg.earMode !== "off" && (GEar.active() || (!!rec && !this.blocked)); },
     // 이름 없이 한 말에도 대답할지: 깨어 있고, 음악 중이 아니고, (얼굴 모드면) 앞에 얼굴이 보일 때
     open() {
-      if (Letter.on || Reminders.active) return true;          // 편지 받아 적기·알림 확인은 이름 없이도 들음
+      if (Letter.on || Reminders.active || Mirror.on) return true;          // 편지 받아 적기·알림 확인은 이름 없이도 들음
       if (state === "sleep" || Music.playing) return false;
       if (cfg.earMode === "all") return true;
       if (cfg.earMode === "face") return !!Vision.stream && Date.now() - Vision.lastSeen < 4000;
@@ -1379,7 +1394,7 @@
     },
     restore() { if (state === "idle") { setMood("idle"); showHint(true); } },
     async transcribe(chunks, mode) {
-      if (cfg.model.startsWith("gemini") && !Letter.on && !Reminders.active) return this.oneShot(chunks, mode);
+      if (cfg.model.startsWith("gemini") && !Letter.on && !Reminders.active && !Mirror.on) return this.oneShot(chunks, mode);
       this.busy = true;
       if (mode === "active") say("…", true);
       let text = "";
@@ -1708,6 +1723,7 @@
   // 말로 "3시에 약 먹으라고 알려줘", "매일 아침 9시에 혈압약" → 시간이 되면 카드와 목소리로 알림.
   // 확인할 때까지 5분마다 다시 알려 주고(3번), 그래도 확인 안 하면 (설정하면) 가족에게 알림.
   const ACK_RE = /알았|알겠|먹었|했어|했어요|확인|그래|응|네|오케이|끝났/;
+  const MIRROR_RE = /거울|내얼굴|내모습|셀카|카메라로(나|날|내)|사진찍어|나좀비춰|나비춰/;
   const Reminders = {
     active: null, timer: null, waitSince: 0,
     list() { return store.get("reminders", []); },
@@ -1749,7 +1765,7 @@
       const due = l.find((x) => x.next <= now);
       if (!due) return;
       if (now - due.next > 3 * 3600 * 1000) { this.done(due, true); return; }     // 3시간 넘게 지난 건 건너뜀 (폰이 꺼져 있었던 경우)
-      const busy = ["listen", "think", "speak", "photo", "voice"].includes(state) || !panel.hidden || Letter.on;
+      const busy = ["listen", "think", "speak", "photo", "voice"].includes(state) || !panel.hidden || Letter.on || Mirror.on;
       if (busy) { if (!this.waitSince) this.waitSince = now; if (now - this.waitSince < 5 * 60 * 1000) return; }
       this.waitSince = 0;
       this.fire(due);
@@ -1831,6 +1847,67 @@
   // ================= 아들에게 편지 쓰기 =================
   // "주형이에게 편지 쓸래" → 말하는 대로 받아 적고, "다 썼어" 하면 맞춤법만 다듬어 보여 줌.
   // 복사해서 공군 인터넷 편지·카톡에 붙여 넣거나, 사진 받는 주소(ntfy)로 아들 폰에 바로 보낼 수 있음.
+  // ---------------- 거울 (카메라로 내 모습 보기 · 사진 찍기) ----------------
+  const Mirror = {
+    on: false, stream: null, facing: "user", timer: null, hadVision: false,
+    msg(t) { $("mirror-msg").textContent = t || ""; },
+    async cam() {
+      if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+      this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: this.facing, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+      const v = $("mirror-video"); v.srcObject = this.stream;
+      v.style.transform = this.facing === "user" ? "scaleX(-1)" : "none";
+      await v.play().catch(() => {});
+    },
+    async open() {
+      if (this.on) return;
+      Frame.hide();
+      this.hadVision = !!Vision.stream; if (this.hadVision) Vision.stop();   // 얼굴 찾기 카메라는 잠시 쉼
+      try { await this.cam(); }
+      catch (e) {
+        console.warn(e); if (this.hadVision) Vision.start();
+        const t = "카메라를 쓸 수 없어요. 카메라 권한을 허용해 주세요."; say(t); await speak(t); return;
+      }
+      this.on = true; $("mirror").hidden = false; state = "idle"; showHint(false);
+      this.msg("\"찰칵\" 하면 사진을 찍어요 · \"그만\" 하면 닫혀요");
+      this.bump(); Ear?.kick();
+    },
+    bump() { clearTimeout(this.timer); this.timer = setTimeout(() => this.close(), 3 * 60 * 1000); lastActive = Date.now(); },   // 3분 뒤 자동으로 닫음
+    close() {
+      if (!this.on) return;
+      this.on = false; clearTimeout(this.timer);
+      if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+      this.stream = null; $("mirror-video").srcObject = null; $("mirror").hidden = true;
+      lastActive = Date.now(); toIdle();
+      if (this.hadVision && cfg.camOn) setTimeout(() => Vision.start(), 800);
+    },
+    async turn() { this.facing = this.facing === "user" ? "environment" : "user"; this.bump(); try { await this.cam(); } catch (_) { this.facing = "user"; await this.cam().catch(() => {}); } },
+    async shot() {
+      this.bump();
+      const v = $("mirror-video"); if (!v.videoWidth) return;
+      for (const n of [3, 2, 1]) { this.msg(String(n)); await new Promise((ok) => setTimeout(ok, 700)); }
+      const cv = document.createElement("canvas"); cv.width = v.videoWidth; cv.height = v.videoHeight;
+      const g = cv.getContext("2d");
+      if (this.facing === "user") { g.translate(cv.width, 0); g.scale(-1, 1); }   // 거울에 보이던 그대로 저장
+      g.drawImage(v, 0, 0);
+      const f = $("mirror-flash"); f.style.opacity = "1"; setTimeout(() => (f.style.opacity = "0"), 200);
+      const blob = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.9));
+      if (!blob) return;
+      const d = new Date();
+      await Photos.addOne("내 사진", new File([blob], `me-${d.getTime()}.jpg`, { type: "image/jpeg" }), `${d.getMonth() + 1}월 ${d.getDate()}일`);
+      this.msg("찍었어요! '내 사진' 앨범에 넣었어요."); speak("찰칵! 예쁘게 나왔어요.");
+    },
+    async hear(text) {
+      const s = text.replace(/\s/g, "");
+      if (/찰칵|찍어|사진|김치|치즈/.test(s)) return this.shot();
+      if (/그만|닫아|끝|됐어|꺼|나가/.test(s)) return this.close();
+      if (/뒤|돌려|바꿔|앞/.test(s)) return this.turn();
+      this.bump();
+    },
+  };
+  $("mirror-shot").onclick = () => Mirror.shot();
+  $("mirror-turn").onclick = () => Mirror.turn();
+  $("mirror-close").onclick = () => Mirror.close();
+
   const Letter = {
     on: false, parts: [], text: "",
     who() { return Inbox.who(); },
@@ -1957,11 +2034,11 @@
     },
     check() {
       if (this.shown) {
-        if (state !== "idle" || face.dataset.m !== "idle" || !panel.hidden || Letter.on || Reminders.active || isNight()) this.hide();
+        if (state !== "idle" || face.dataset.m !== "idle" || !panel.hidden || Letter.on || Mirror.on || Reminders.active || isNight()) this.hide();
         return;
       }
       const after = (+cfg.frameAfterMin || 3) * 60 * 1000;
-      if (this.enabled() && state === "idle" && face.dataset.m === "idle" && panel.hidden && !Letter.on && !Reminders.active &&
+      if (this.enabled() && state === "idle" && face.dataset.m === "idle" && panel.hidden && !Letter.on && !Mirror.on && !Reminders.active &&
           !Music.playing && !isNight() && Date.now() - lastActive > after) this.show();
     },
   };
@@ -2372,7 +2449,7 @@
   };
   window.hyungs = { Music, offlineReply, parseReply };   // 개발·시험용
   window.hyungs.GEar = GEar; window.hyungs.Photos = Photos; window.hyungs.Inbox = Inbox; window.hyungs.Voices = Voices;
-  window.hyungs.Reminders = Reminders; window.hyungs.Brief = Brief; window.hyungs.Letter = Letter; window.hyungs.Frame = Frame; window.hyungs.HAS_BODY = HAS_BODY; window.hyungs.Vault = Vault;
+  window.hyungs.Reminders = Reminders; window.hyungs.Brief = Brief; window.hyungs.Letter = Letter; window.hyungs.Frame = Frame; window.hyungs.HAS_BODY = HAS_BODY; window.hyungs.Vault = Vault; window.hyungs.Mirror = Mirror;
   // 첫 터치 때 오디오도 미리 깨워 둠 (안드로이드 자동재생 제한)
   document.addEventListener("pointerdown", () => { const c = Music.ensureCtx(); if (c && c.state === "suspended") c.resume(); }, { capture: true });
 
